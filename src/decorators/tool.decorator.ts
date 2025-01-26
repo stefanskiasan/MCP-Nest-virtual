@@ -1,6 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-
-export const MCP_TOOL_METADATA_KEY = 'mcp:tool';
+import { MCP_TOOL_METADATA_KEY } from './constants';
 
 export interface ToolMetadata {
   name: string;

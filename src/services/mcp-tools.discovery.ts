@@ -24,6 +24,7 @@ export class McpToolsDiscovery {
         if (!methodMetaKeys.includes(MCP_TOOL_METADATA_KEY)) {
           return;
         }
+
         const methodFn = Reflect.getMetadata(MCP_TOOL_METADATA_KEY, methodRef);
         mcpServer.tool(
           methodFn.name,
