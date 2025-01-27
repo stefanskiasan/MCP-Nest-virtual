@@ -1,6 +1,6 @@
 # NestJS MCP Server Module
 
-A NestJS module for exposing your services as an MCP (Model Context Protocol) server with Server-Sent Events (SSE) transport. This package simplifies exposing tools that can be discovered and executed by clients via SSE.
+A NestJS module for exposing your services as an MCP (Model Context Protocol) server with Server-Sent Events (SSE) transport. This package simplifies exposing tools that clients can discover and execute via SSE.
 
 ## Features
 
@@ -20,7 +20,7 @@ npm install @rekog/mcp-nest reflect-metadata @modelcontextprotocol/sdk zod
 ```typescript
 // app.module.ts
 import { Module } from '@nestjs/common';
-import { McpModule } from '@your-package-name/mcp';
+import { McpModule } from '@rekog/mcp-nest';
 import { GreetingTool } from './greeting.tool';
 
 @Module({
@@ -41,7 +41,7 @@ export class AppModule {}
 ```typescript
 // greeting.tool.ts
 import { Injectable } from '@nestjs/common';
-import { Tool } from '@your-package-name/mcp';
+import { Tool } from '@rekog/mcp-nest';
 import { z } from 'zod';
 
 @Injectable()
