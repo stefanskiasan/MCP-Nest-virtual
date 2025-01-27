@@ -18,6 +18,9 @@ export class McpToolsDiscovery {
       .map((wrapper) => wrapper.instance);
 
     allInstances.forEach((instance) => {
+      if (!instance || typeof instance !== 'object') {
+        return;
+      }
       this.metadataScanner.getAllMethodNames(instance).forEach((method) => {
         const methodRef = instance[method];
         const methodMetaKeys = Reflect.getOwnMetadataKeys(methodRef);

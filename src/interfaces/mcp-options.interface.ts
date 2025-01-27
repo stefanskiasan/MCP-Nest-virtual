@@ -3,6 +3,9 @@ import { ModuleMetadata, Type } from '@nestjs/common';
 export interface McpOptions {
   name: string;
   version: string;
+  sseEndpoint?: string,
+  messagesEndpoint?: string,
+  globalApiPrefix?: string,
   capabilities?: Record<string, any>;
 }
 

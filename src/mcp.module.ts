@@ -1,14 +1,20 @@
-import 'reflect-metadata';
 import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { McpToolsDiscovery } from './services/mcp-tools.discovery';
-import { SseController } from './controllers/sse.controller';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { McpOptions, McpAsyncOptions, McpOptionsFactory } from './interfaces/mcp-options.interface';
+import { McpToolsDiscovery } from './services/mcp-tools.discovery';
+
+import { createSseController } from './controllers/sse.controller.factory';
 
 @Module({})
 export class McpModule {
   static forRoot(options: McpOptions): DynamicModule {
+    const sseEndpoint = options.sseEndpoint ?? 'sse';
+    const messagesEndpoint = options.messagesEndpoint ?? 'messages';
+    const globalApiPrefix = options.globalApiPrefix ?? '';
+
+    const SseController = createSseController(sseEndpoint, messagesEndpoint, globalApiPrefix);
+
     return {
       module: McpModule,
       imports: [DiscoveryModule],
@@ -23,7 +29,7 @@ export class McpModule {
           useFactory: (mcpOptions: McpOptions, toolsDiscovery: McpToolsDiscovery) => {
             const server = new McpServer(
               { name: mcpOptions.name, version: mcpOptions.version },
-              { capabilities: mcpOptions.capabilities || { tools: {} } }
+              { capabilities: mcpOptions.capabilities || { tools: {} } },
             );
             toolsDiscovery.registerTools(server);
             return server;
@@ -42,7 +48,7 @@ export class McpModule {
     return {
       module: McpModule,
       imports: [...(options.imports || []), DiscoveryModule],
-      controllers: [SseController],
+      controllers: [],
       providers: [
         ...providers,
         McpToolsDiscovery,
@@ -51,7 +57,7 @@ export class McpModule {
           useFactory: (mcpOptions: McpOptions, toolsDiscovery: McpToolsDiscovery) => {
             const server = new McpServer(
               { name: mcpOptions.name, version: mcpOptions.version },
-              { capabilities: mcpOptions.capabilities || { tools: {} } }
+              { capabilities: mcpOptions.capabilities || { tools: {} } },
             );
             toolsDiscovery.registerTools(server);
             return server;
@@ -62,7 +68,6 @@ export class McpModule {
       exports: ['MCP_SERVER'],
     };
   }
-
 
   private static createAsyncProviders(options: McpAsyncOptions): Provider[] {
     if (options.useExisting || options.useFactory) {
