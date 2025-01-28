@@ -2,9 +2,9 @@ import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { McpOptions, McpAsyncOptions, McpOptionsFactory } from './interfaces/mcp-options.interface';
-import { McpToolsDiscovery } from './services/mcp-tools.discovery';
 
 import { createSseController } from './controllers/sse.controller.factory';
+import { McpToolsDiscovery } from './services/mcp-tools.discovery';
 
 @Module({})
 export class McpModule {
@@ -26,15 +26,14 @@ export class McpModule {
         },
         {
           provide: 'MCP_SERVER',
-          useFactory: (mcpOptions: McpOptions, toolsDiscovery: McpToolsDiscovery) => {
+          useFactory: (mcpOptions: McpOptions) => {
             const server = new McpServer(
               { name: mcpOptions.name, version: mcpOptions.version },
               { capabilities: mcpOptions.capabilities || { tools: {} } },
             );
-            toolsDiscovery.registerTools(server);
             return server;
           },
-          inject: ['MCP_OPTIONS', McpToolsDiscovery],
+          inject: ['MCP_OPTIONS'],
         },
         McpToolsDiscovery,
       ],
@@ -51,19 +50,18 @@ export class McpModule {
       controllers: [],
       providers: [
         ...providers,
-        McpToolsDiscovery,
         {
           provide: 'MCP_SERVER',
-          useFactory: (mcpOptions: McpOptions, toolsDiscovery: McpToolsDiscovery) => {
+          useFactory: (mcpOptions: McpOptions) => {
             const server = new McpServer(
               { name: mcpOptions.name, version: mcpOptions.version },
               { capabilities: mcpOptions.capabilities || { tools: {} } },
             );
-            toolsDiscovery.registerTools(server);
             return server;
           },
-          inject: ['MCP_OPTIONS', McpToolsDiscovery],
+          inject: ['MCP_OPTIONS'],
         },
+        McpToolsDiscovery,
       ],
       exports: ['MCP_SERVER'],
     };

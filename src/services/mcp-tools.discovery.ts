@@ -1,16 +1,21 @@
 import { DiscoveryService, MetadataScanner } from "@nestjs/core";
-import { Injectable } from "@nestjs/common";
+import { Injectable, OnApplicationBootstrap, Inject } from "@nestjs/common";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { MCP_TOOL_METADATA_KEY } from "../decorators";
 
 @Injectable()
-export class McpToolsDiscovery {
+export class McpToolsDiscovery implements OnApplicationBootstrap {
   constructor(
     private readonly discovery: DiscoveryService,
     private readonly metadataScanner: MetadataScanner,
+    @Inject('MCP_SERVER') private readonly mcpServer: McpServer,
   ) {}
 
-  registerTools(mcpServer: McpServer) {
+  onApplicationBootstrap() {
+    this.registerTools();
+  }
+
+  registerTools() {
     const providers = this.discovery.getProviders();
     const controllers = this.discovery.getControllers();
     const allInstances = [...providers, ...controllers]
@@ -29,7 +34,7 @@ export class McpToolsDiscovery {
         }
 
         const methodFn = Reflect.getMetadata(MCP_TOOL_METADATA_KEY, methodRef);
-        mcpServer.tool(
+        this.mcpServer.tool(
           methodFn.name,
           methodFn.description,
           methodFn.schema,
