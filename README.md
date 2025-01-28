@@ -28,7 +28,7 @@ import { GreetingTool } from './greeting.tool';
     McpModule.forRoot({
       name: 'my-mcp-server',
       version: '1.0.0',
-      capabilities: { /* ... */ }
+      capabilities: {}
     })
   ],
   providers: [GreetingTool]
