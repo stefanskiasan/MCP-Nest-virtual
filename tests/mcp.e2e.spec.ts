@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { Tool } from '../src';
 import { McpOptions } from '../src/interfaces';
 import { McpModule } from '../src/mcp.module';
+import { RequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 // Mock UserRepository for testing
 @Injectable()
@@ -26,12 +27,23 @@ class MockUserRepository {
   }
 }
 
+const ProgressRequestSchema = RequestSchema.extend({
+  method: z.literal('progress/request'),
+  params: z.object({
+    _meta: z.object({
+      progressToken: z.union([z.string(), z.number().int()]).optional(),
+    }).optional(),
+  }).optional(),
+});
+
 @Injectable()
 export class GreetingTool {
   constructor(private readonly userRepository: MockUserRepository) {}
 
   @Tool('hello-world', 'A sample tool that returns a greeting', {
-    name: z.string().default('World'),
+    schema: {
+      name: z.string().default('World'),
+    }
   })
   async sayHello({ name }) {
     const user = await this.userRepository.findOne();
@@ -45,6 +57,33 @@ export class GreetingTool {
         },
       ],
     };
+  }
+
+  @Tool('progress-test', 'A tool that simulates progress', {
+    requestSchema: ProgressRequestSchema,
+  })
+  async progressTest(params, context) {
+      const progressToken = params._meta?.progressToken;
+
+      for (let i = 0; i <= 5; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        if (progressToken) {
+          await context.sendNotification({
+            method: 'notifications/progress',
+            params: {
+              progressToken,
+              progress: i,
+              total: 5,
+            },
+          });
+          console.log(`Sent progress: ${i}/5`);
+        }
+      }
+
+      return {
+        message: 'Progress test completed!',
+      };
   }
 }
 
@@ -67,6 +106,9 @@ describe('E2E: MCP Server via SSE', () => {
               },
             },
           },
+          'progress-test': {
+            description: 'A tool that simulates progress',
+          }
         },
       },
     };
@@ -98,7 +140,7 @@ describe('E2E: MCP Server via SSE', () => {
     await client.connect(transport);
 
     const tools = await client.listTools();
-    expect(tools.tools[0].name).toBe('hello-world');
+    expect(tools.tools.find(t => t.name == 'hello-world')).toBeDefined();
 
     const result = await client.callTool({
       name: 'hello-world',
@@ -113,6 +155,38 @@ describe('E2E: MCP Server via SSE', () => {
         },
       ],
     });
+    await client.close();
+  });
+
+  it('should receive multiple progress notifications from progress-test tool', async () => {
+    const client = new Client(
+      { name: 'example-client', version: '1.0.0' },
+      { capabilities: {} },
+    );
+
+    const sseUrl = new URL(`http://localhost:${testPort}/sse`);
+    const transport = new SSEClientTransport(sseUrl);
+    await client.connect(transport);
+
+    let progressCount = 0;
+    const result = await client.request(
+      {
+        method: 'progress/request',
+        params: {
+          _meta: {
+            progressToken: 'test-token',
+          },
+        },
+      },
+      z.object({ message: z.string() }),
+      {
+        onprogress: (progress) => {
+          progressCount++;
+        },
+      },
+    );
+    expect(progressCount).toBe(5);
+    expect(result).toEqual({ message: 'Progress test completed!' });
     await client.close();
   });
 });

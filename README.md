@@ -6,6 +6,8 @@ A NestJS module for exposing your services as an MCP (Model Context Protocol) se
 
 - **SSE Transport**: Built-in `/sse` endpoint for streaming and `/messages` for handling tool execution
 - **Tool Discovery**: Automatically discover and register tools using decorators
+- **Tool Request Validation**: Define Zod schemas to validate tool requests.
+- **Progress Notifications**: Send continuous progress updates from tools to clients.
 
 ## Installation
 
@@ -43,16 +45,55 @@ export class AppModule {}
 import { Injectable } from '@nestjs/common';
 import { Tool } from '@rekog/mcp-nest';
 import { z } from 'zod';
+import { RequestSchema } from '@modelcontextprotocol/sdk/types.js';
+
+const ProgressRequestSchema = RequestSchema.extend({
+  method: z.literal('progress/request'),
+  params: z.object({
+    _meta: z.object({
+      progressToken: z.union([z.string(), z.number().int()]).optional(),
+    }).optional(),
+  }).optional(),
+});
 
 @Injectable()
 export class GreetingTool {
   @Tool('hello', 'Returns greeting', {
-    name: z.string().default('World')
+    schema: {
+      name: z.string().default('World')
+    }
   })
   greet({ name }: { name: string }) {
     return {
       content: [{ type: 'text', text: `Hello ${name}!` }]
     };
+  }
+
+  @Tool('progress-test', 'A tool that simulates progress', {
+    requestSchema: ProgressRequestSchema,
+  })
+  async progressTest(params, context) {
+      const progressToken = params._meta?.progressToken;
+
+      for (let i = 0; i <= 5; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        if (progressToken) {
+          await context.sendNotification({
+            method: 'notifications/progress',
+            params: {
+              progressToken,
+              progress: i,
+              total: 5,
+            },
+          });
+          console.log(`Sent progress: \${i}/5`);
+        }
+      }
+
+      return {
+        message: 'Progress test completed!',
+      };
   }
 }
 ```
@@ -84,7 +125,7 @@ const client = new Client(
 );
 
 await client.connect(
-  new SSEClientTransport(new URL('http://localhost:3000/sse'))
+  new SSEClientTransport(new URL('<http://localhost:3000/sse>'))
 );
 
 // Execute tool
@@ -92,6 +133,24 @@ const result = await client.callTool({
   name: 'hello',
   arguments: { name: 'World' }
 });
+
+// Execute tool with request schema and receive progress notifications
+const progressResult = await client.request(
+  {
+    method: 'progress/request',
+    params: {
+      _meta: {
+        progressToken: 'test-token',
+      },
+    },
+  },
+  z.object({ message: z.string() }),
+  {
+    onprogress: (progress) => {
+      console.log('Received progress:', progress);
+    },
+  },
+);
 ```
 
 ## API Endpoints
@@ -108,3 +167,35 @@ const result = await client.callTool({
 | `name`         | string                    | Server name                  |
 | `version`      | string                    | Server version               |
 | `capabilities` | Record<string, any>       | Server capabilities          |
+| `sseEndpoint` | string (optional) | Endpoint for SSE connections. Defaults to `'sse'`. |
+| `messagesEndpoint` | string (optional) | Endpoint for handling tool execution. Defaults to `'messages'`. |
+| `globalApiPrefix` | string (optional) | Global API prefix for all endpoints. Defaults to an empty string `''`. |
+
+### Tool Decorator
+
+The `@Tool` decorator is used to define a method as an MCP tool.
+
+```typescript
+@Tool(name: string, description: string, options: { schema?: any, requestSchema?: z.ZodObject<any> })
+```
+
+- `name`: The name of the tool.
+- `description`: A description of the tool.
+- `options.schema`: (Optional) A Zod schema defining the expected structure of the tool's input arguments.
+- `options.requestSchema`: (Optional) A Zod schema extending the base `RequestSchema` to validate the entire request structure, including method name and metadata.
+
+### Context Object
+
+When defining a tool, you can access a context object passed as the second argument to the tool method. This object provides methods for sending notifications, errors, and responses.
+
+```typescript
+{
+  sendNotification: async (notification: any) => { ... },
+  sendError: async (message: string, data?: any) => { ... },
+  sendResponse: async (response: any) => { ... }
+}
+```
+
+- `sendNotification`: Sends a notification to the client.
+- `sendError`: Sends an error response to the client.
+- `sendResponse`: Sends a successful response to the client.

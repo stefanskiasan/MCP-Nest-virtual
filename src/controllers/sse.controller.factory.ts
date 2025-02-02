@@ -1,8 +1,11 @@
-import { Controller, Get, Post, Req, Res, Body, Inject } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { McpOptions } from '../interfaces';
+import { McpToolsDiscovery } from '../services/mcp-tools.discovery';
+
 
 export function createSseController(
   sseEndpoint: string,
@@ -11,22 +14,45 @@ export function createSseController(
 ) {
   @Controller()
   class SseController {
-    public transport: SSEServerTransport | null = null;
+    public transports = new Map<string, SSEServerTransport>();
 
-    constructor(@Inject('MCP_SERVER') public readonly mcpServer: McpServer) {}
+    constructor(
+      @Inject('MCP_OPTIONS') public readonly options: McpOptions,
+      public readonly mcpToolsDiscovery: McpToolsDiscovery,
+    ) {}
 
     @Get(sseEndpoint)
     async sse(@Res() res: Response) {
-      this.transport = new SSEServerTransport(`${globalApiPrefix}/${messagesEndpoint}`, res);
-      await this.mcpServer.connect(this.transport);
+      const transport = new SSEServerTransport(`${globalApiPrefix}/${messagesEndpoint}`, res);
+      const sessionId = transport.sessionId;
+
+      const mcpServer = new McpServer(
+        { name: this.options.name, version: this.options.version },
+        { capabilities: this.options.capabilities || { tools: {} } },
+      );
+
+      // Register tools (this will now also register tool-specific request handlers)
+      this.mcpToolsDiscovery.registerTools(mcpServer);
+
+      this.transports.set(sessionId, transport);
+
+      transport.onclose = () => {
+        this.transports.delete(sessionId);
+      };
+
+      await mcpServer.connect(transport);
     }
 
     @Post(messagesEndpoint)
     async messages(@Req() req: Request, @Res() res: Response, @Body() body: unknown) {
-      if (!this.transport) {
-        return res.status(500).send('No active SSE connection');
+      const sessionId = req.query.sessionId as string;
+
+      const transport = this.transports.get(sessionId);
+
+      if (!transport) {
+        return res.status(404).send('Session not found');
       }
-      await this.transport.handlePostMessage(req, res, body);
+      await transport.handlePostMessage(req, res, body);
     }
   }
 
