@@ -190,7 +190,6 @@ export class McpToolsDiscovery implements OnApplicationBootstrap {
     return {
       reportProgress: async (progress: Progress) => {
         if (progressToken) {
-          console.log("Reporting progress", progress);
           await mcpServer.server.notification({
             method: "notifications/progress",
             params: {
