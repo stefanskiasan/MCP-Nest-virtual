@@ -1,11 +1,11 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { INestApplication, Injectable } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import { z } from "zod";
 import { Tool } from "../src";
 import { McpModule } from "../src/mcp.module";
 import { Context } from "../src/services/mcp-tools.discovery";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { Progress } from "@modelcontextprotocol/sdk/types.js";
 
 // Mock UserRepository for testing

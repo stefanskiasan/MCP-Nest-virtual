@@ -30,7 +30,6 @@ import { GreetingTool } from './greeting.tool';
     McpModule.forRoot({
       name: 'my-mcp-server',
       version: '1.0.0',
-      capabilities: {}
     })
   ],
   providers: [GreetingTool]
@@ -46,7 +45,7 @@ import { Injectable } from '@nestjs/common';
 import { Tool } from '@rekog/mcp-nest';
 import { z } from 'zod';
 import { Context } from '@rekog/mcp-nest/dist/services/mcp-tools.discovery';
-import { Progress } from "@modelcontextprotocol/sdk/types.js";
+import { Progress } from '@modelcontextprotocol/sdk/types';
 
 @Injectable()
 export class GreetingTool {
@@ -54,55 +53,43 @@ export class GreetingTool {
 
   @Tool({
     name: 'hello-world',
-    description: 'Returns a greeting and simulates a long operation with progress updates',
+    description:
+      'Returns a greeting and simulates a long operation with progress updates',
     parameters: z.object({
       name: z.string().default('World'),
     }),
   })
   async sayHello({ name }, context: Context) {
+    const greeting = `Hello, ${name}!`;
 
-      const greeting = `Hello, ${name}!`;
+    const totalSteps = 5;
+    for (let i = 0; i < totalSteps; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const totalSteps = 5;
-      for (let i = 0; i < totalSteps; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+      // Send a progress update.
+      await context.reportProgress({
+        progress: (i + 1) * 20,
+        total: 100,
+      } as Progress);
+    }
 
-        // Send a progress update.
-        await context.reportProgress({
-          progress: (i + 1) * 20,
-          total: 100,
-        } as Progress);
-      }
-
-      return {
-        content: [{ type: 'text', text: greeting }]
-      };
+    return {
+      content: [{ type: 'text', text: greeting }],
+    };
   }
 }
 ```
 
-### 3. Start Server
-
-```typescript
-// main.ts
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  await app.listen(3000);
-}
-bootstrap();
-```
+You are done!
 
 ## Client Connection
 
 Clients can connect using the MCP SDK:
 
 ```typescript
+// client.ts
 import { Client } from '@modelcontextprotocol/sdk/client';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse';
-import { z } from 'zod';
 
 const client = new Client(
   { name: 'client-name', version: '1.0.0' },
@@ -110,7 +97,7 @@ const client = new Client(
 );
 
 await client.connect(
-  new SSEClientTransport(new URL('<http://localhost:3000/sse>'))
+  new SSEClientTransport(new URL('http://localhost:3000/sse'))
 );
 
 // Execute the 'hello-world' tool with progress tracking
