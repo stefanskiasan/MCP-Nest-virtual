@@ -4,7 +4,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { McpOptions, McpAsyncOptions, McpOptionsFactory } from './interfaces/mcp-options.interface';
 
 import { createSseController } from './controllers/sse.controller.factory';
-import { McpToolsDiscovery } from './services/mcp-tools.discovery';
+import { McpToolRegistryService } from './services/mcp-tool-registry.service';
+import { McpToolsExecutorService } from './services/mcp-tools-executor.service';
 
 @Module({})
 export class McpModule {
@@ -12,8 +13,15 @@ export class McpModule {
     const sseEndpoint = options.sseEndpoint ?? 'sse';
     const messagesEndpoint = options.messagesEndpoint ?? 'messages';
     const globalApiPrefix = options.globalApiPrefix ?? '';
+    const guards = options.guards ?? [];
 
-    const SseController = createSseController(sseEndpoint, messagesEndpoint, globalApiPrefix);
+    // Create the controller with guards
+    const SseController = createSseController(
+      sseEndpoint,
+      messagesEndpoint,
+      globalApiPrefix,
+      guards
+    );
 
     return {
       module: McpModule,
@@ -35,9 +43,11 @@ export class McpModule {
           },
           inject: ['MCP_OPTIONS'],
         },
-        McpToolsDiscovery,
+        // Register both the registry (singleton) and executor (request-scoped) services
+        McpToolRegistryService,
+        McpToolsExecutorService
       ],
-      exports: ['MCP_SERVER'],
+      exports: ['MCP_SERVER', McpToolRegistryService, McpToolsExecutorService],
     };
   }
 
@@ -61,12 +71,17 @@ export class McpModule {
           },
           inject: ['MCP_OPTIONS'],
         },
-        McpToolsDiscovery,
+        // Register both the registry and executor services
+        McpToolRegistryService,
+        McpToolsExecutorService
       ],
-      exports: ['MCP_SERVER'],
+      exports: ['MCP_SERVER', McpToolRegistryService, McpToolsExecutorService],
     };
   }
 
+  /**
+   * Helper to create async providers that handle different options types
+   */
   private static createAsyncProviders(options: McpAsyncOptions): Provider[] {
     if (options.useExisting || options.useFactory) {
       return [this.createAsyncOptionsProvider(options)];
@@ -85,6 +100,9 @@ export class McpModule {
     ];
   }
 
+  /**
+   * Create the async options provider
+   */
   private static createAsyncOptionsProvider(options: McpAsyncOptions): Provider {
     if (options.useFactory) {
       return {
@@ -106,5 +124,4 @@ export class McpModule {
       inject: [injectionToken],
     };
   }
-
 }
