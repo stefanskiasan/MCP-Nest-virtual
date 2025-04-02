@@ -1,4 +1,5 @@
 import { ModuleMetadata, Type } from '@nestjs/common';
+import { CanActivate } from '@nestjs/common';
 
 export interface McpOptions {
   name: string;
@@ -7,6 +8,7 @@ export interface McpOptions {
   messagesEndpoint?: string,
   globalApiPrefix?: string,
   capabilities?: Record<string, any>;
+  guards?: Type<CanActivate>[];
 }
 
 export interface McpOptionsFactory {

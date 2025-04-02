@@ -1,12 +1,58 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { Injectable, OnApplicationBootstrap } from "@nestjs/common";
-import { DiscoveryService, MetadataScanner } from "@nestjs/core";
-import { MCP_TOOL_METADATA_KEY, ToolMetadata } from "../decorators";
+import { Injectable, Scope, Inject } from "@nestjs/common";
+import { ModuleRef } from "@nestjs/core";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError, Progress } from "@modelcontextprotocol/sdk/types.js";
+import { REQUEST } from "@nestjs/core";
+import { Request } from "express";
+import { McpToolRegistryService } from "./mcp-tool-registry.service";
 
+export type Literal = boolean | null | number | string | undefined;
+
+export type SerializableValue =
+  | Literal
+  | SerializableValue[]
+  | { [key: string]: SerializableValue };
+
+export type TextContent = {
+  type: "text";
+  text: string;
+};
+
+export const TextContentZodSchema = z
+  .object({
+    type: z.literal("text"),
+    /**
+     * The text content of the message.
+     */
+    text: z.string(),
+  })
+  .strict() satisfies z.ZodType<TextContent>;
+
+export type Content = TextContent;
+
+export const ContentZodSchema = z.discriminatedUnion("type", [
+  TextContentZodSchema,
+]) satisfies z.ZodType<Content>;
+
+export type ContentResult = {
+  content: Content[];
+  isError?: boolean;
+};
+
+export const ContentResultZodSchema = z
+  .object({
+    content: ContentZodSchema.array(),
+    isError: z.boolean().optional(),
+  })
+  .strict() satisfies z.ZodType<ContentResult>;
+
+/**
+ * Enhanced execution context that includes user information
+ */
 export type Context = {
+  user?: any;
   reportProgress: (progress: Progress) => Promise<void>;
   log: {
     debug: (message: string, data?: SerializableValue) => void;
@@ -16,45 +62,6 @@ export type Context = {
   };
 };
 
-type Literal = boolean | null | number | string | undefined;
-
-type SerializableValue =
-  | Literal
-  | SerializableValue[]
-  | { [key: string]: SerializableValue };
-
-type TextContent = {
-  type: "text";
-  text: string;
-};
-
-const TextContentZodSchema = z
-  .object({
-    type: z.literal("text"),
-    /**
-     * The text content of the message.
-     */
-    text: z.string(),
-  })
-  .strict() satisfies z.ZodType<TextContent>;
-type Content = TextContent;
-
-const ContentZodSchema = z.discriminatedUnion("type", [
-  TextContentZodSchema,
-]) satisfies z.ZodType<Content>;
-
-type ContentResult = {
-  content: Content[];
-  isError?: boolean;
-};
-
-const ContentResultZodSchema = z
-  .object({
-    content: ContentZodSchema.array(),
-    isError: z.boolean().optional(),
-  })
-  .strict() satisfies z.ZodType<ContentResult>;
-
 class UserError extends Error {
   constructor(message: string) {
     super(message);
@@ -62,63 +69,32 @@ class UserError extends Error {
   }
 }
 
-@Injectable()
-export class McpToolsDiscovery implements OnApplicationBootstrap {
-  private tools: Array<{
-    metadata: ToolMetadata;
-    instance: any;
-    methodName: string;
-  }> = [];
-
+/**
+ * Request-scoped service for executing MCP tools
+ */
+@Injectable({ scope: Scope.REQUEST })
+export class McpToolsExecutorService {
+  // Don't inject the request directly in the constructor
   constructor(
-    private readonly discovery: DiscoveryService,
-    private readonly metadataScanner: MetadataScanner,
+    private readonly moduleRef: ModuleRef,
+    private readonly toolRegistry: McpToolRegistryService,
   ) {}
 
-  onApplicationBootstrap() {
-    this.collectTools();
-  }
-
-  collectTools() {
-    const providers = this.discovery.getProviders();
-    const controllers = this.discovery.getControllers();
-    const allInstances = [...providers, ...controllers]
-      .filter((wrapper) => wrapper.instance)
-      .map((wrapper) => wrapper.instance);
-
-    allInstances.forEach((instance) => {
-      if (!instance || typeof instance !== 'object') {
-        return;
-      }
-      this.metadataScanner.getAllMethodNames(instance).forEach((methodName) => {
-        const methodRef = instance[methodName];
-        const methodMetaKeys = Reflect.getOwnMetadataKeys(methodRef);
-
-        if (!methodMetaKeys.includes(MCP_TOOL_METADATA_KEY)) {
-          return;
-        }
-
-        const metadata: ToolMetadata = Reflect.getMetadata(MCP_TOOL_METADATA_KEY, methodRef);
-
-        this.tools.push({
-          metadata,
-          instance,
-          methodName,
-        });
-      });
-    });
-  }
-
-  registerTools(mcpServer: McpServer) {
-    // Register list tools handler
+  /**
+   * Register tool-related request handlers with the MCP server
+   * @param mcpServer - The MCP server instance
+   * @param request - The current HTTP request object
+   */
+  registerRequestHandlers(mcpServer: McpServer, httpRequest: Request & { user: any }) {
     mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      let tools = this.tools.map((tool) => ({
-          name: tool.metadata.name,
-          description: tool.metadata.description,
-          inputSchema: tool.metadata.parameters
-            ? zodToJsonSchema(tool.metadata.parameters)
-            : undefined,
-        }))
+      const tools = this.toolRegistry.getTools().map((tool) => ({
+        name: tool.metadata.name,
+        description: tool.metadata.description,
+        inputSchema: tool.metadata.parameters
+          ? zodToJsonSchema(tool.metadata.parameters)
+          : undefined,
+      }));
+
       return {
         tools
       };
@@ -126,16 +102,16 @@ export class McpToolsDiscovery implements OnApplicationBootstrap {
 
     // Register call tool handler
     mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const tool = this.tools.find((tool) => tool.metadata.name === request.params.name);
+      const toolInfo = this.toolRegistry.findTool(request.params.name);
 
-      if (!tool) {
+      if (!toolInfo) {
         throw new McpError(
           ErrorCode.MethodNotFound,
           `Unknown tool: ${request.params.name}`
         );
       }
 
-      const schema = tool.metadata.parameters;
+      const schema = toolInfo.metadata.parameters;
       let parsedParams = request.params.arguments;
 
       if (schema && schema instanceof z.ZodType) {
@@ -152,11 +128,22 @@ export class McpToolsDiscovery implements OnApplicationBootstrap {
       const progressToken = request.params?._meta?.progressToken;
 
       try {
-        const context = this.createContext(mcpServer, progressToken!);
-        const result = await tool.instance[tool.methodName].call(
-          tool.instance,
+        // Resolve the tool instance for the current request
+        const toolInstance = await this.moduleRef.resolve(
+          toolInfo.providerClass,
+          undefined,
+          { strict: false }
+        );
+
+        // Create the execution context with user information
+        const context = this.createContext(mcpServer, request, httpRequest);
+
+        // Call the tool method
+        const result = await toolInstance[toolInfo.methodName].call(
+          toolInstance,
           parsedParams,
-          context
+          context,
+          httpRequest,
         );
 
         // Handle different result types
@@ -186,7 +173,14 @@ export class McpToolsDiscovery implements OnApplicationBootstrap {
     });
   }
 
-  private createContext(mcpServer: McpServer, progressToken?: string | number) : Context {
+  /**
+   * Create the execution context with user data from the request
+   * @param mcpServer - The MCP server instance
+   * @param progressToken - Optional progress token for reporting progress
+   * @param request - The current HTTP request
+   */
+  private createContext(mcpServer: McpServer, toolRequest: z.infer<typeof CallToolRequestSchema>, httpRequest?: Request & { user: any}): Context {
+    const progressToken = toolRequest.params?._meta?.progressToken;
     return {
       reportProgress: async (progress: Progress) => {
         if (progressToken) {
@@ -199,6 +193,7 @@ export class McpToolsDiscovery implements OnApplicationBootstrap {
           });
         }
       },
+
       log: {
         debug: (message: string, context?: SerializableValue) => {
           mcpServer.server.sendLoggingMessage({

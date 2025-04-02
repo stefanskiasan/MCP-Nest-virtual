@@ -8,11 +8,12 @@ A NestJS module for exposing your services as an MCP (Model Context Protocol) se
 - **Tool Discovery**: Automatically discover and register tools using decorators
 - **Tool Request Validation**: Define Zod schemas to validate tool requests.
 - **Progress Notifications**: Send continuous progress updates from tools to clients.
+- **Authentication**: Integrates with NestJS Guards for securing endpoints.
 
 ## Installation
 
 ```bash
-npm install @rekog/mcp-nest reflect-metadata @modelcontextprotocol/sdk zod
+npm install @rekog/mcp-nest reflect-metadata @modelcontextprotocol/sdk zod @nestjs/common @nestjs/core
 ```
 
 ## Quick Start
@@ -42,9 +43,8 @@ export class AppModule {}
 ```typescript
 // greeting.tool.ts
 import { Injectable } from '@nestjs/common';
-import { Tool } from '@rekog/mcp-nest';
+import { Tool, Context } from '@rekog/mcp-nest';
 import { z } from 'zod';
-import { Context } from '@rekog/mcp-nest/dist/services/mcp-tools.discovery';
 import { Progress } from '@modelcontextprotocol/sdk/types';
 
 @Injectable()
@@ -82,12 +82,111 @@ export class GreetingTool {
 
 You are done!
 
-## Client Connection
+## Authentication
 
-Clients can connect using the MCP SDK:
+You can secure your MCP endpoints using standard NestJS Guards.
+
+### 1. Create a Guard
+
+Implement the `CanActivate` interface. The guard should handle request validation (e.g., checking JWTs, API keys) and optionally attach user information to the request object.
+<details>
+<summary>Example Guard Implementation</summary>
 
 ```typescript
-// client.ts
+// auth.guard.ts
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Observable } from 'rxjs';
+
+@Injectable()
+export class AuthGuard implements CanActivate {
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const authorization = request.headers.authorization;
+
+    // Example: Check for a specific Bearer token
+    if (authorization && authorization.startsWith('Bearer ')) {
+      const token = authorization.substring(7);
+      if (token === 'your-secret-token') {
+        // Attach user info if needed (optional)
+        request.user = { id: 'user-123', roles: ['admin'] };
+        return true; // Allow access
+      }
+    }
+
+    return false; // Deny access
+  }
+}
+```
+
+</details>
+
+### 2. Apply the Guard
+
+Pass your guard(s) to the `McpModule.forRoot` configuration. The guard(s) will be applied to both the `/sse` and `/messages` endpoints.
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { McpModule } from '@rekog/mcp-nest';
+import { GreetingTool } from './greeting.tool';
+import { AuthGuard } from './auth.guard';
+
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'my-mcp-server',
+      version: '1.0.0',
+      guards: [AuthGuard] // Apply the guard here
+    })
+  ],
+  providers: [GreetingTool, AuthGuard] // Ensure the Guard is also provided
+})
+export class AppModule {}
+```
+
+### 3. Access User Context in Tools (Optional)
+
+If your guard attaches user information to the `request` object (e.g., `request.user = ...`), you can access it in your tool as the third parameter.
+
+```typescript
+// authenticated-greeting.tool.ts
+import { Injectable } from '@nestjs/common';
+import { Tool, Context } from '@rekog/mcp-nest';
+import { z } from 'zod';
+import { Request } from 'express'; // Import Request from express
+
+@Injectable()
+export class AuthenticatedGreetingTool {
+
+  @Tool({
+    name: 'auth-hello-world',
+    description: 'Greets the authenticated user',
+    parameters: z.object({}), // No parameters needed for this example
+  })
+  // Add 'request' as the third parameter
+  async sayAuthHello(args: {}, context: Context, request: Request & { user?: { id: string } }) {
+    const userId = request.user?.id || 'Anonymous';
+    const greeting = `Hello, user ${userId}!`;
+
+    return {
+      content: [{ type: 'text', text: greeting }],
+    };
+  }
+}
+```
+
+*Note: Ensure your tool (`AuthenticatedGreetingTool` in this example) is added to the `providers` array in your `AppModule`.*
+
+## Client Connection
+
+Clients need to provide the necessary credentials (e.g., Authorization header) when connecting if authentication is enabled.
+
+### Unauthenticated Client
+
+```typescript
+// client.ts (no authentication)
 import { Client } from '@modelcontextprotocol/sdk/client';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse';
 
@@ -100,17 +199,47 @@ await client.connect(
   new SSEClientTransport(new URL('http://localhost:3000/sse'))
 );
 
-// Execute the 'hello-world' tool with progress tracking
+// ... list tools, call tools etc.
+```
+
+### Authenticated Client
+
+Pass request options (like headers) to the `SSEClientTransport`.
+
+```typescript
+// client.ts (with authentication)
+import { Client } from '@modelcontextprotocol/sdk/client';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse';
+
+const client = new Client(
+  { name: 'client-name', version: '1.0.0' },
+  { capabilities: {} }
+);
+
+const transport = new SSEClientTransport(
+  new URL('http://localhost:3000/sse'),
+  {
+    // Provide necessary credentials here
+    requestInit: {
+      headers: {
+        Authorization: 'Bearer your-secret-token' // Match guard expectation
+      }
+    }
+  }
+);
+
+await client.connect(transport);
+
+
+// Execute the 'auth-hello-world' tool
 const greetResult = await client.callTool(
   {
-    name: 'hello-world',
-    arguments: {
-      name: 'MCP User',
-    },
+    name: 'auth-hello-world',
+    arguments: {},
   },
-  undefined, // responseSchema is optional, or you can define a Zod schema here
+  undefined, // responseSchema is optional
   {
-    onprogress: (progress) => {
+    onprogress: (progress) => { // Example progress handler
       console.log(
         `Progress: ${progress.progress}/${progress.total}`
       );
@@ -118,13 +247,13 @@ const greetResult = await client.callTool(
   },
 );
 
-console.log(greetResult.content[0].text); // Output: Hello MCP User! I'm Test User from Test Org.
+console.log(greetResult.content[0].text); // Output: Hello, user user-123!
 ```
 
 ## API Endpoints
 
-- `GET /sse`: SSE connection endpoint
-- `POST /messages`: Tool execution endpoint
+- `GET /sse`: SSE connection endpoint (Protected by guards if configured)
+- `POST /messages`: Tool execution endpoint (Protected by guards if configured)
 
 ## Configuration Reference
 
@@ -135,6 +264,7 @@ console.log(greetResult.content[0].text); // Output: Hello MCP User! I'm Test Us
 | `name`               | string                    | Server name                                                                 | -             |
 | `version`            | string                    | Server version                                                              | -             |
 | `capabilities`       | Record<string, any>       | Server capabilities, defines what the server can do.                        | `{}`          |
+| `guards`             | `any[]` (NestJS Guards)   | An array of NestJS Guards to apply to the MCP endpoints.                    | `[]`          |
 | `sseEndpoint`        | string (optional)         | Endpoint for SSE connections.                                               | `'sse'`       |
 | `messagesEndpoint`   | string (optional)         | Endpoint for handling tool execution.                                        | `'messages'`  |
 | `globalApiPrefix`    | string (optional)         | Global API prefix for all endpoints.                                        | `''`          |
@@ -150,3 +280,15 @@ The `@Tool` decorator is used to define a method as an MCP tool.
 - `name`: The name of the tool. This will be used to list it in the `listTools` request.
 - `description`: A description of the tool.
 - `parameters`: (Optional) A Zod schema defining the expected structure of the tool's input arguments.
+
+### Context Parameter
+
+The second parameter passed to a `@Tool` decorated method is the `Context` object.
+
+- `context.reportProgress(progress: Progress)`: Sends a progress update message to the client. `Progress` typically has `{ progress: number, total: number }`.
+
+### Request Paramter
+
+The third parameter passed to a `@Tool` decorated method is the `Request` object.
+
+- `request`: The request object from the underlying HTTP framework (e.g., Express). This can be used to access headers, query parameters, etc.
