@@ -1,11 +1,14 @@
 import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { McpOptions, McpAsyncOptions, McpOptionsFactory } from './interfaces/mcp-options.interface';
+import {
+  McpOptions,
+  McpAsyncOptions,
+  McpOptionsFactory,
+} from './interfaces/mcp-options.interface';
 
 import { createSseController } from './controllers/sse.controller.factory';
-import { McpToolRegistryService } from './services/mcp-tool-registry.service';
-import { McpToolsExecutorService } from './services/mcp-tools-executor.service';
+import { McpRegistryService } from './services/mcp-registry.service';
+import { McpExecutorService } from './services/mcp-executor.service';
 
 @Module({})
 export class McpModule {
@@ -20,7 +23,7 @@ export class McpModule {
       sseEndpoint,
       messagesEndpoint,
       globalApiPrefix,
-      guards
+      guards,
     );
 
     return {
@@ -32,22 +35,11 @@ export class McpModule {
           provide: 'MCP_OPTIONS',
           useValue: options,
         },
-        {
-          provide: 'MCP_SERVER',
-          useFactory: (mcpOptions: McpOptions) => {
-            const server = new McpServer(
-              { name: mcpOptions.name, version: mcpOptions.version },
-              { capabilities: mcpOptions.capabilities || { tools: {} } },
-            );
-            return server;
-          },
-          inject: ['MCP_OPTIONS'],
-        },
         // Register both the registry (singleton) and executor (request-scoped) services
-        McpToolRegistryService,
-        McpToolsExecutorService
+        McpRegistryService,
+        McpExecutorService,
       ],
-      exports: ['MCP_SERVER', McpToolRegistryService, McpToolsExecutorService],
+      exports: [McpRegistryService, McpExecutorService],
     };
   }
 
@@ -60,22 +52,11 @@ export class McpModule {
       controllers: [],
       providers: [
         ...providers,
-        {
-          provide: 'MCP_SERVER',
-          useFactory: (mcpOptions: McpOptions) => {
-            const server = new McpServer(
-              { name: mcpOptions.name, version: mcpOptions.version },
-              { capabilities: mcpOptions.capabilities || { tools: {} } },
-            );
-            return server;
-          },
-          inject: ['MCP_OPTIONS'],
-        },
         // Register both the registry and executor services
-        McpToolRegistryService,
-        McpToolsExecutorService
+        McpRegistryService,
+        McpExecutorService,
       ],
-      exports: ['MCP_SERVER', McpToolRegistryService, McpToolsExecutorService],
+      exports: [McpRegistryService, McpExecutorService],
     };
   }
 
@@ -88,7 +69,9 @@ export class McpModule {
     }
 
     if (!options.useClass) {
-      throw new Error('useClass must be defined when not using useExisting or useFactory');
+      throw new Error(
+        'useClass must be defined when not using useExisting or useFactory',
+      );
     }
 
     return [
@@ -103,7 +86,9 @@ export class McpModule {
   /**
    * Create the async options provider
    */
-  private static createAsyncOptionsProvider(options: McpAsyncOptions): Provider {
+  private static createAsyncOptionsProvider(
+    options: McpAsyncOptions,
+  ): Provider {
     if (options.useFactory) {
       return {
         provide: 'MCP_OPTIONS',
@@ -114,7 +99,9 @@ export class McpModule {
 
     const injectionToken = options.useExisting || options.useClass;
     if (!injectionToken) {
-      throw new Error('Either useExisting or useClass must be defined when not using useFactory');
+      throw new Error(
+        'Either useExisting or useClass must be defined when not using useFactory',
+      );
     }
 
     return {
