@@ -13,3 +13,5 @@ npm run start:playground
 # 3. test it using the inspector
 npx @modelcontextprotocol/inspector
 ```
+
+The last command will print the MCP Inspector URL. Open it in your browser, change the **Transport Type** to `SSE` and set the **URL** to the playground endpoint `http://localhost:3030/sse`.

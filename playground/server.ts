@@ -1,7 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { Module } from '@nestjs/common';
 import { McpModule } from '../src';
-import { PlaygroundResource } from './resource.service';
+import { GreetingResource } from './greeting.resource';
+import { GreetingTool } from './greeting.tool';
 
 @Module({
   imports: [
@@ -10,7 +11,7 @@ import { PlaygroundResource } from './resource.service';
       version: '0.0.1',
     }),
   ],
-  providers: [PlaygroundResource],
+  providers: [GreetingResource, GreetingTool],
 })
 class AppModule {}
 

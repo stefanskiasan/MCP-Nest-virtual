@@ -2,7 +2,7 @@ import { Injectable, Scope } from '@nestjs/common';
 import { Resource } from '../src';
 
 @Injectable({ scope: Scope.REQUEST })
-export class PlaygroundResource {
+export class GreetingResource {
   constructor() {}
 
   @Resource({
