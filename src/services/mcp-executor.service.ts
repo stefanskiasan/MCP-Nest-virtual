@@ -1,5 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { Injectable, Scope, Type } from '@nestjs/common';
+import { Injectable, Logger, Scope, Type } from '@nestjs/common';
 import { ContextIdFactory, ModuleRef } from '@nestjs/core';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -21,6 +21,8 @@ import { Context, SerializableValue } from 'src/interfaces/mcp-tool.interface';
  */
 @Injectable({ scope: Scope.REQUEST })
 export class McpExecutorService {
+  private logger = new Logger(McpExecutorService.name);
+
   // Don't inject the request directly in the constructor
   constructor(
     private readonly moduleRef: ModuleRef,
@@ -39,6 +41,7 @@ export class McpExecutorService {
 
   private registerResources(mcpServer: McpServer, httpRequest: Request) {
     mcpServer.server.setRequestHandler(ListResourcesRequestSchema, () => {
+      this.logger.debug('ListResourcesRequestSchema is being called');
       const data = {
         resources: this.registry
           .getResources()
@@ -51,6 +54,8 @@ export class McpExecutorService {
     mcpServer.server.setRequestHandler(
       ReadResourceRequestSchema,
       async (request) => {
+        this.logger.debug('ReadResourceRequestSchema is being called');
+
         // Support for dynamic resources, since they use uriTemplates (RFC 6570)
         // https://modelcontextprotocol.io/docs/concepts/resources#resource-templates
         const uri = request.params.uri;
@@ -100,11 +105,14 @@ export class McpExecutorService {
             httpRequest,
           );
 
+          this.logger.debug(result, 'ReadResourceRequestSchema result');
+
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return result;
         } catch (error) {
+          this.logger.error(error);
           return {
-            content: [{ type: 'text', text: `Error: ${error}` }],
+            contents: [{ uri, mimeType: 'text/plain', text: error.message }],
             isError: true,
           };
         }
@@ -132,6 +140,8 @@ export class McpExecutorService {
     mcpServer.server.setRequestHandler(
       CallToolRequestSchema,
       async (request) => {
+        this.logger.debug('CallToolRequestSchema is being called');
+
         const toolInfo = this.registry.findTool(request.params.name);
 
         if (!toolInfo) {
@@ -185,11 +195,14 @@ export class McpExecutorService {
             httpRequest,
           );
 
+          this.logger.debug(result, 'CallToolRequestSchema result');
+
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return result;
         } catch (error) {
+          this.logger.error(error);
           return {
-            content: [{ type: 'text', text: `Error: ${error}` }],
+            content: [{ type: 'text', text: error.message }],
             isError: true,
           };
         }
