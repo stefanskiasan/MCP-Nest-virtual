@@ -45,7 +45,12 @@ export class McpRegistryService implements OnApplicationBootstrap {
     const providers = this.discovery.getProviders();
     const controllers = this.discovery.getControllers();
     const allInstances = [...providers, ...controllers]
-      .filter((wrapper) => wrapper.instance)
+      .filter(
+        (wrapper) =>
+          wrapper.instance &&
+          typeof wrapper.instance === 'object' &&
+          wrapper.instance !== null,
+      )
       .map((wrapper) => ({
         instance: wrapper.instance as object,
         token: wrapper.token,
