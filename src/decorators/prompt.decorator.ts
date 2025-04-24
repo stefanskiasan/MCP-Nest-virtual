@@ -14,7 +14,11 @@ export interface PromptMetadata {
   parameters?: ZodObject<PromptArgsRawShape>;
 }
 
-export type PromptOptions = PromptMetadata;
+export interface PromptOptions {
+  name?: string;
+  description: string;
+  parameters?: ZodObject<PromptArgsRawShape>;
+}
 
 export const Prompt = (options: PromptOptions) => {
   return SetMetadata(MCP_PROMPT_METADATA_KEY, options);

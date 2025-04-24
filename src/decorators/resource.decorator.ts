@@ -5,12 +5,17 @@ export type ResourceOptions =
   // https://modelcontextprotocol.io/docs/concepts/resources#direct-resources
   {
     uri: string; // Unique identifier for the resource
-    name: string; // Human-readable name
+    name?: string; // Human-readable name
     description?: string; // Optional description
     mimeType?: string; // Optional MIME type
   };
 
-export type ResourceMetadata = ResourceOptions;
+export interface ResourceMetadata {
+  uri: string; // Unique identifier for the resource
+  name: string; // Human-readable name
+  description?: string; // Optional description
+  mimeType?: string; // Optional MIME type
+}
 
 /**
  * Decorator that marks a controller method as an MCP resource.
