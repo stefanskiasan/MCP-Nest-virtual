@@ -12,16 +12,18 @@
 
 A NestJS module to effortlessly expose tools, resources, and prompts for AI, from your NestJS applications using the **Model Context Protocol (MCP)**.
 
-`@rekog/mcp-nest` handles the complexity of setting up MCP servers. You define tools, resources, and prompts in a way that's familiar in NestJS and leverage the full power of dependency injection to utilize your existing services.
+with `@rekog/mcp-nest` you define tools, resources, and prompts in a way that's familiar in NestJS and leverage the full power of dependency injection to utilize your existing codebase in building complex enterprise ready MCP servers.
 
 ## Features
 
-- 🚀 HTTP+SSE, Streamable HTTP, and STDIO Transport
+- 🚀 Support for all Transport Types:
+  - Streamable HTTP
+  - HTTP+SSE
+  - STDIO
 - 🔍 Automatic `tool`, `resource`, and `prompt` discovery and registration
-- 💯 Zod-based request validation
+- 💯 Zod-based tool call validation
 - 📊 Progress notifications
 - 🔒 Guard-based authentication
-- ⏱️ Automatic SSE ping to maintain long connections
 
 ## Installation
 
@@ -29,7 +31,7 @@ A NestJS module to effortlessly expose tools, resources, and prompts for AI, fro
 npm install @rekog/mcp-nest @modelcontextprotocol/sdk zod
 ```
 
-## Quick Start for HTTP+SSE
+## Quick Start
 
 ### 1. Import Module
 
@@ -120,8 +122,8 @@ The main difference is that you need to provide the `transport` option when impo
 
 ```typescript
 McpModule.forRoot({
-  name: 'my-mcp-server',
-  version: '1.0.0',
+  name: 'playground-stdio-server',
+  version: '0.0.1',
   transport: McpTransportType.STDIO,
 });
 ```
@@ -130,26 +132,49 @@ The rest is the same, you can define tools, resources, and prompts as usual. An 
 
 ```typescript
 async function bootstrap() {
-  const app = await NestFactory.createApplicationContext(AppModule);
+  const app = await NestFactory.createApplicationContext(AppModule, {
+    logger: false,
+  });
   return app.close();
 }
 
 void bootstrap();
 ```
 
-Easy. Now you can access using a MCP Stdio Client.
+Next, you can use the MCP server with an MCP Stdio Client ([see example](playground/clients/stdio-client.ts)), or after building your prject you can use it with the following MCP Client configuration:
+
+```json
+{
+  "mcpServers": {
+    "greeting": {
+      "command": "node",
+      "args": [
+        "<path to dist js file>",
+      ]
+    }
+  }
+}
+```
 
 ## API Endpoints
 
+HTTP+SSE transport exposes two endpoints:
+
 - `GET /sse`: SSE connection endpoint (Protected by guards if configured)
 - `POST /messages`: Tool execution endpoint (Protected by guards if configured)
+
+Streamable HTTP transport exposes the following endpoints:
+
+- `POST /mcp`: Main endpoint for all MCP operations (tool execution, resource access, etc.). In stateful mode, this creates and maintains sessions.
+- `GET /mcp`: Establishes Server-Sent Events (SSE) streams for real-time updates and progress notifications. **Only available in stateful mode.**
+- `DELETE /mcp`: Terminates MCP sessions. **Only available in stateful mode.**
 
 ### Tips
 
 It's possible to use the module with global prefix, but the recommended way is to exclude those endpoints with:
 
 ```typescript
-app.setGlobalPrefix('/api', { exclude: ['sse', 'messages'] });
+app.setGlobalPrefix('/api', { exclude: ['sse', 'messages', 'mcp'] });
 ```
 
 ## Authentication
@@ -188,30 +213,62 @@ export class AppModule {}
 
 That's it! The rest is the same as NestJS Guards.
 
-## SSE Ping Service
+## Playground
 
-The module includes an SSE ping service that helps maintain long-lived SSE connections by preventing browser/client timeouts. This is especially useful for clients such as IDE's using your MCP server remotely.
+The `playground` directory contains examples to quickly test MCP and `@rekog/mcp-nest` features.
+Refer to the [`playground/README.md`](playground/README.md) for more details.
 
-### Configuration
+## Configuration
 
-You can configure the SSE ping behavior when importing the module:
+The `McpModule.forRoot()` method accepts an `McpOptions` object to configure the server. Here are the available options:
+
+| Option             | Description                                                                                                                               | Default                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `name`             | **Required.** The name of your MCP server.                                                                                                | -                                                                    |
+| `version`          | **Required.** The version of your MCP server.                                                                                             | -                                                                    |
+| `capabilities`     | Optional MCP server capabilities to advertise. See [@modelcontextprotocol/sdk](https://www.npmjs.com/package/@modelcontextprotocol/sdk). | `undefined`                                                          |
+| `instructions`     | Optional instructions for the client on how to interact with the server.                                                                    | `undefined`                                                          |
+| `transport`        | Specifies the transport type(s) to enable.                                                                                                | `[McpTransportType.SSE, McpTransportType.STREAMABLE_HTTP, McpTransportType.STDIO]` |
+| `sseEndpoint`      | The endpoint path for the SSE connection (used with `SSE` transport).                                                                     | `'sse'`                                                              |
+| `messagesEndpoint` | The endpoint path for sending messages (used with `SSE` transport).                                                                       | `'messages'`                                                         |
+| `mcpEndpoint`      | The base endpoint path for MCP operations (used with `STREAMABLE_HTTP` transport).                                                        | `'mcp'`                                                              |
+| `globalApiPrefix`  | A global prefix for all MCP endpoints. Useful if integrating into an existing application.                                                | `''`                                                                 |
+| `guards`           | An array of NestJS Guards to apply to the MCP endpoints for authentication/authorization.                                                   | `[]`                                                                 |
+| `decorators`       | An array of NestJS Class Decorators to apply to the generated MCP controllers.                                                            | `[]`                                                                 |
+| `sse`              | Configuration specific to the `SSE` transport.                                                                                            | `{ pingEnabled: true, pingIntervalMs: 30000 }`                       |
+| `sse.pingEnabled`  | Whether to enable periodic SSE ping messages to keep the connection alive.                                                                | `true`                                                               |
+| `sse.pingIntervalMs` | The interval (in milliseconds) for sending SSE ping messages.                                                                             | `30000`                                                              |
+| `streamableHttp`   | Configuration specific to the `STREAMABLE_HTTP` transport.                                                                                | `{ enableJsonResponse: true, sessionIdGenerator: undefined, statelessMode: true }` |
+| `streamableHttp.enableJsonResponse` | If `true`, allows the `/mcp` endpoint to return JSON responses for non-streaming requests (like `listTools`).                             | `true`                                                               |
+| `streamableHttp.sessionIdGenerator` | A function to generate unique session IDs when running in stateful mode. Required if `statelessMode` is `false`.                            | `undefined`                                                          |
+| `streamableHttp.statelessMode` | If `true`, the `STREAMABLE_HTTP` transport operates statelessly (no sessions). If `false`, it operates statefully, requiring a `sessionIdGenerator`. | `true`                                                               |
+
+**Example:**
 
 ```typescript
 // app.module.ts
 import { Module } from '@nestjs/common';
-import { McpModule } from '@rekog/mcp-nest';
+import { McpModule, McpTransportType } from '@rekog/mcp-nest';
+import { GreetingTool } from './greeting.tool';
+import { AuthGuard } from './auth.guard'; // Your custom guard
+import { randomUUID } from 'crypto';
 
 @Module({
   imports: [
     McpModule.forRoot({
-      name: 'my-mcp-server',
-      version: '1.0.0',
-      sse: {
-        pingEnabled: true, // Default is true
-        pingIntervalMs: 30000, // Default is 30 seconds (30000ms)
+      name: 'my-stateful-mcp-server',
+      version: '2.1.0',
+      transport: McpTransportType.STREAMABLE_HTTP, // Only enable Streamable HTTP
+      mcpEndpoint: 'api/mcp', // Custom endpoint
+      guards: [AuthGuard], // Apply authentication
+      streamableHttp: {
+        statelessMode: false, // Enable stateful mode
+        sessionIdGenerator: () => randomUUID(), // Provide a session ID generator
+        enableJsonResponse: false, // Disable JSON responses for non-streaming requests
       },
     }),
   ],
+  providers: [GreetingTool, AuthGuard],
 })
 export class AppModule {}
 ```
