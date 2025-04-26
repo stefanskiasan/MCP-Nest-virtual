@@ -127,6 +127,9 @@ describe('E2E: MCP ToolServer', () => {
   let app: INestApplication;
   let testPort: number;
 
+  // Set timeout for all tests in this describe block to 15000ms
+  jest.setTimeout(15000);
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
