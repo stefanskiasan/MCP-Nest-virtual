@@ -4,10 +4,9 @@ import { McpOptions, McpTransportType } from './interfaces';
 import { McpExecutorService } from './services/mcp-executor.service';
 import { McpRegistryService } from './services/mcp-registry.service';
 import { SsePingService } from './services/sse-ping.service';
+import { createSseController } from './transport/sse.controller.factory';
 import { StdioService } from './transport/stdio.service';
 import { createStreamableHttpController } from './transport/streamable-http.controller.factory';
-import { createSseController } from './transport/sse.controller.factory';
-import { randomUUID } from 'crypto';
 
 @Module({
   imports: [DiscoveryModule],

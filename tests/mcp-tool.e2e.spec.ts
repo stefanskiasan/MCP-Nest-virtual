@@ -4,7 +4,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { z } from 'zod';
 import { Context, McpTransportType, Tool } from '../src';
 import { McpModule } from '../src/mcp.module';
-import { createSseClient, createStreamableClient } from './utils';
+import {
+  createSseClient,
+  createStdioClient,
+  createStreamableClient,
+} from './utils';
 import { REQUEST } from '@nestjs/core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { randomUUID } from 'crypto';
@@ -160,7 +164,7 @@ describe('E2E: MCP ToolServer', () => {
   });
 
   const runClientTests = (
-    clientType: 'http+sse' | 'streamable http',
+    clientType: 'http+sse' | 'streamable http' | 'stdio',
     clientCreator: (port: number, options?: any) => Promise<Client>,
     requestScopedHeaderValue: string,
   ) => {
@@ -202,7 +206,10 @@ describe('E2E: MCP ToolServer', () => {
               },
             );
 
-            expect(progressCount).toBe(5);
+            if (clientType != 'stdio') {
+              // stdio has no support for progress
+              expect(progressCount).toBe(5);
+            }
             expect(result.content[0].type).toBe('text');
             expect(result.content[0].text).toContain(
               'Hello, Repository User Name userRepo123!',
@@ -289,4 +296,11 @@ describe('E2E: MCP ToolServer', () => {
 
   // Run tests using the Streamable HTTP MCP client
   runClientTests('streamable http', createStreamableClient, 'streamable-value');
+
+  runClientTests(
+    'stdio',
+    () =>
+      createStdioClient({ serverScriptPath: 'tests/sample/stdio-server.ts' }),
+    'No header (stdio)',
+  );
 });

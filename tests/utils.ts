@@ -1,6 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 /**
  * Creates and connects a new MCP (Model Context Protocol) client for testing
@@ -83,6 +84,41 @@ export async function createStreamableClient(
   const transport = new StreamableHTTPClientTransport(url, {
     requestInit: options.requestInit,
   });
+  await client.connect(transport);
+  return client;
+}
+
+/**
+ * Creates and connects a new MCP (Model Context Protocol) client using STDIO for testing
+ *
+ * @param serverScriptPath - The path to the server script to run.
+ * @param options - Optional configuration options for the stdio client transport.
+ * @returns A connected MCP Client instance
+ * @example
+ * ```ts
+ * const client = await createStdioClient('path/to/server.ts');
+ * ```
+ */
+export async function createStdioClient(options: {
+  serverScriptPath: string;
+}): Promise<Client> {
+  const client = new Client(
+    { name: 'example-stdio-client', version: '1.0.0' },
+    {
+      capabilities: {
+        tools: {},
+        resources: {},
+        resourceTemplates: {},
+        prompts: {},
+      },
+    },
+  );
+
+  const transport = new StdioClientTransport({
+    command: 'ts-node-dev',
+    args: ['--respawn', options.serverScriptPath!],
+  });
+
   await client.connect(transport);
   return client;
 }

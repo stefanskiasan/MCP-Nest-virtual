@@ -22,7 +22,14 @@ export class StdioService implements OnModuleInit {
 
     const mcpServer = new McpServer(
       { name: this.options.name, version: this.options.version },
-      { capabilities: this.options.capabilities || {} },
+      {
+        capabilities: this.options.capabilities || {
+          tools: {},
+          resources: {},
+          prompts: {},
+          instructions: [],
+        },
+      },
     );
 
     const contextId = ContextIdFactory.create();

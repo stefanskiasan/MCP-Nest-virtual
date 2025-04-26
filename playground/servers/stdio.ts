@@ -11,11 +11,6 @@ import { GreetingPrompt } from '../resources/greeting.prompt';
       name: 'playground-stdio-server',
       version: '0.0.1',
       transport: McpTransportType.STDIO,
-      capabilities: {
-        tools: {},
-        resources: {},
-        prompts: {},
-      },
     }),
   ],
   providers: [GreetingTool, GreetingPrompt, GreetingResource],
