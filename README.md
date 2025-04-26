@@ -1,14 +1,15 @@
 # NestJS MCP Server Module
 
-<p align="center">
+<div align="center">
   <img src="https://raw.githubusercontent.com/rekog-labs/MCP-Nest/main/image.png" height="200">
-</p>
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/@rekog/mcp-nest" target="_blank"><img alt="npm version" src="https://img.shields.io/npm/v/@rekog/mcp-nest" /></a>
-  <a href="https://www.npmjs.com/package/@rekog/mcp-nest" target="_blank"><img alt="npm downloads" src="https://img.shields.io/npm/dm/@rekog/mcp-nest" /></a>
-  <a href="https://www.npmjs.com/package/@rekog/mcp-nest" target="_blank"><img alt="NPM" src="https://img.shields.io/npm/l/@rekog/mcp-nest" /></a>
-</p>
+[![CI][ci-image]][ci-url]
+[![Code Coverage][code-coverage-image]][code-coverage-url]
+[![NPM Version][npm-version-image]][npm-url]
+[![NPM Downloads][npm-downloads-image]][npm-url]
+[![NPM License][npm-license-image]][npm-url]
+
+</div>
 
 A NestJS module to effortlessly expose tools, resources, and prompts for AI, from your NestJS applications using the **Model Context Protocol (MCP)**.
 
@@ -243,32 +244,12 @@ The `McpModule.forRoot()` method accepts an `McpOptions` object to configure the
 | `streamableHttp.sessionIdGenerator` | A function to generate unique session IDs when running in stateful mode. Required if `statelessMode` is `false`.                            | `undefined`                                                          |
 | `streamableHttp.statelessMode` | If `true`, the `STREAMABLE_HTTP` transport operates statelessly (no sessions). If `false`, it operates statefully, requiring a `sessionIdGenerator`. | `true`                                                               |
 
-**Example:**
-
-```typescript
-// app.module.ts
-import { Module } from '@nestjs/common';
-import { McpModule, McpTransportType } from '@rekog/mcp-nest';
-import { GreetingTool } from './greeting.tool';
-import { AuthGuard } from './auth.guard'; // Your custom guard
-import { randomUUID } from 'crypto';
-
-@Module({
-  imports: [
-    McpModule.forRoot({
-      name: 'my-stateful-mcp-server',
-      version: '2.1.0',
-      transport: McpTransportType.STREAMABLE_HTTP, // Only enable Streamable HTTP
-      mcpEndpoint: 'api/mcp', // Custom endpoint
-      guards: [AuthGuard], // Apply authentication
-      streamableHttp: {
-        statelessMode: false, // Enable stateful mode
-        sessionIdGenerator: () => randomUUID(), // Provide a session ID generator
-        enableJsonResponse: false, // Disable JSON responses for non-streaming requests
-      },
-    }),
-  ],
-  providers: [GreetingTool, AuthGuard],
-})
-export class AppModule {}
-```
+<!-- Badges -->
+[ci-url]: https://github.com/rekog-labs/MCP-Nest/actions/workflows/pipeline.yml
+[ci-image]: https://github.com/rekog-labs/MCP-Nest/actions/workflows/pipeline.yml/badge.svg
+[npm-url]: https://www.npmjs.com/package/@rekog/mcp-nest
+[npm-version-image]: https://img.shields.io/npm/v/@rekog/mcp-nest
+[npm-downloads-image]: https://img.shields.io/npm/dm/@rekog/mcp-nest
+[npm-license-image]: https://img.shields.io/npm/l/@rekog/mcp-nest
+[code-coverage-url]: https://codecov.io/gh/rekog-labs/mcp-nest
+[code-coverage-image]: https://codecov.io/gh/rekog-labs/mcp-nest/branch/main/graph/badge.svg
