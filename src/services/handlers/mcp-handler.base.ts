@@ -1,17 +1,8 @@
 import { Logger } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { z } from 'zod';
-import {
-  CallToolRequestSchema,
-  GetPromptRequestSchema,
-  Progress,
-  ReadResourceRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import {
-  Context,
-  SerializableValue,
-} from '../../interfaces/mcp-tool.interface';
+import { Progress } from '@modelcontextprotocol/sdk/types.js';
+import { Context, McpRequest, SerializableValue } from '../../interfaces';
 import { McpRegistryService } from '../mcp-registry.service';
 
 export abstract class McpHandlerBase {
@@ -27,15 +18,11 @@ export abstract class McpHandlerBase {
 
   protected createContext(
     mcpServer: McpServer,
-    mcpRequest: z.infer<
-      | typeof CallToolRequestSchema
-      | typeof ReadResourceRequestSchema
-      | typeof GetPromptRequestSchema
-    >,
+    mcpRequest: McpRequest,
   ): Context {
     // handless stateless traffic where notifications and progress are not supported
     if ((mcpServer.server.transport as any).sessionId === undefined) {
-      return this.createStatelessContext();
+      return this.createStatelessContext(mcpServer, mcpRequest);
     }
 
     const progressToken = mcpRequest.params?._meta?.progressToken;
@@ -77,10 +64,15 @@ export abstract class McpHandlerBase {
           });
         },
       },
+      mcpServer,
+      mcpRequest,
     };
   }
 
-  protected createStatelessContext(): Context {
+  protected createStatelessContext(
+    mcpServer: McpServer,
+    mcpRequest: McpRequest,
+  ): Context {
     const warn = (fn: string) => {
       this.logger.warn(`Stateless context: '${fn}' is not supported.`);
     };
@@ -107,6 +99,8 @@ export abstract class McpHandlerBase {
           warn('server report logging not supported in stateless');
         },
       },
+      mcpServer,
+      mcpRequest,
     };
   }
 }
