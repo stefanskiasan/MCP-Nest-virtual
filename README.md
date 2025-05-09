@@ -13,7 +13,7 @@
 
 A NestJS module to effortlessly expose tools, resources, and prompts for AI, from your NestJS applications using the **Model Context Protocol (MCP)**.
 
-with `@rekog/mcp-nest` you define tools, resources, and prompts in a way that's familiar in NestJS and leverage the full power of dependency injection to utilize your existing codebase in building complex enterprise ready MCP servers.
+With `@rekog/mcp-nest` you define tools, resources, and prompts in a way that's familiar in NestJS and leverage the full power of dependency injection to utilize your existing codebase in building complex enterprise ready MCP servers.
 
 ## Features
 
@@ -25,6 +25,7 @@ with `@rekog/mcp-nest` you define tools, resources, and prompts in a way that's 
 - 💯 Zod-based tool call validation
 - 📊 Progress notifications
 - 🔒 Guard-based authentication
+- 🌐 Access to HTTP Request information within MCP Resources (Tools, Resources, Prompts)
 
 ## Installation
 
@@ -58,6 +59,7 @@ export class AppModule {}
 
 ```typescript
 // greeting.tool.ts
+import type { Request } from 'express';
 import { Injectable } from '@nestjs/common';
 import { Tool, Resource, Context } from '@rekog/mcp-nest';
 import { z } from 'zod';
@@ -75,12 +77,12 @@ export class GreetingTool {
       name: z.string().default('World'),
     }),
   })
-  async sayHello({ name }, context: Context) {
-    const greeting = `Hello, ${name}!`;
-
+  async sayHello({ name }, context: Context, request: Request) {
+    const userAgent = request.get('user-agent') || 'Unknown';
+    const greeting = `Hello, ${name}! Your user agent is: ${userAgent}`;
     const totalSteps = 5;
     for (let i = 0; i < totalSteps; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Send a progress update.
       await context.reportProgress({
@@ -116,6 +118,9 @@ export class GreetingTool {
 ```
 
 You are done!
+
+> [!TIP]
+> The above example shows how HTTP `Request` headers are accessed within MCP Tools. This is useful for identifying users, adding client-specific logic, and many other use cases. For more examples, see the [Authentication Tests](./tests/mcp-tool-auth.spec.ts).
 
 ## Quick Start for STDIO
 

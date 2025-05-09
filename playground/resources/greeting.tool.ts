@@ -1,3 +1,4 @@
+import type { Request } from 'express';
 import { Injectable } from '@nestjs/common';
 import { Context, Tool } from '../../src';
 import { Progress } from '@modelcontextprotocol/sdk/types.js';
@@ -13,9 +14,9 @@ export class GreetingTool {
       name: z.string().default('World'),
     }),
   })
-  async sayHello({ name }, context: Context) {
-    const greeting = `Hello, ${name}!`;
-
+  async sayHello({ name }, context: Context, request: Request) {
+    const userAgent = request.get('user-agent') || 'Unknown';
+    const greeting = `Hello, ${name}! Your user agent is: ${userAgent}`;
     const totalSteps = 5;
     for (let i = 0; i < totalSteps; i++) {
       await new Promise((resolve) => setTimeout(resolve, 100));
