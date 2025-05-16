@@ -131,6 +131,31 @@ export class ToolRequestScoped {
   }
 }
 
+@Injectable()
+class OutputSchemaTool {
+  constructor() {}
+  @Tool({
+    name: 'output-schema-tool',
+    description: 'A tool to test outputSchema',
+    parameters: z.object({
+      input: z.string().describe('Example input'),
+    }),
+    outputSchema: z.object({
+      result: z.string().describe('Example result'),
+    }),
+  })
+  async execute({ input }) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({result: input}),
+        },
+      ],
+    };
+  }
+}
+
 describe('E2E: MCP ToolServer', () => {
   let app: INestApplication;
   let statelessApp: INestApplication;
@@ -160,6 +185,7 @@ describe('E2E: MCP ToolServer', () => {
         GreetingToolRequestScoped,
         MockUserRepository,
         ToolRequestScoped,
+        OutputSchemaTool,
       ],
     }).compile();
 
@@ -193,6 +219,7 @@ describe('E2E: MCP ToolServer', () => {
           GreetingToolRequestScoped,
           MockUserRepository,
           ToolRequestScoped,
+          OutputSchemaTool,
         ],
       }).compile();
 
@@ -239,6 +266,21 @@ describe('E2E: MCP ToolServer', () => {
           expect(
             tools.tools.find((t) => t.name === 'get-request-scoped'),
           ).toBeDefined();
+        } finally {
+          await client.close();
+        }
+      });
+      
+      it('should list tools with outputSchema', async () => {
+        const client = await clientCreator(port);
+        try {
+          const tools = await client.listTools();
+          console.log('tools:', JSON.stringify(tools, null, 2));
+          expect(tools.tools.length).toBeGreaterThan(0);
+          const outputSchemaTool = tools.tools.find(t => t.name === 'output-schema-tool');
+          expect(outputSchemaTool).toBeDefined();
+          expect(outputSchemaTool?.outputSchema).toBeDefined();
+          expect(outputSchemaTool?.outputSchema).toHaveProperty('properties.result');
         } finally {
           await client.close();
         }
