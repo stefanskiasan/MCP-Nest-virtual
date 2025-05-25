@@ -22,14 +22,16 @@ export function buildMcpCapabilities(
     };
   }
 
-  // Removed those from the if condition because of Bug on the MCP TS SDK
-  capabilities.resources = capabilities.resources || {
-    listChanged: true,
-  };
+  if (registry.getResources().length > 0) {
+    capabilities.resources = capabilities.resources || {
+      listChanged: true,
+    };
 
-  capabilities.resourceTemplates = capabilities.resourceTemplates || {
-    listChanged: true,
-  };
+    // ToDo: Move into its own condition when we split Resources and ResourceTemplates
+    capabilities.resourceTemplates = capabilities.resourceTemplates || {
+      listChanged: true,
+    };
+  }
 
   // Add prompts capability if prompts are discovered
   if (registry.getPrompts().length > 0) {
