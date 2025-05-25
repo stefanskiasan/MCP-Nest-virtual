@@ -1,6 +1,7 @@
 import {
   Injectable,
   InjectionToken,
+  Logger,
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
@@ -29,6 +30,7 @@ export type DiscoveredTool<T extends object> = {
  */
 @Injectable()
 export class McpRegistryService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(McpRegistryService.name);
   private discoveredTools: DiscoveredTool<any>[] = [];
 
   constructor(
@@ -44,6 +46,7 @@ export class McpRegistryService implements OnApplicationBootstrap {
    * Scans all providers and controllers for @Tool decorators
    */
   private discoverTools() {
+    this.logger.debug('Discovering tools, resources, and prompts...');
     const providers = this.discovery.getProviders();
     const controllers = this.discovery.getControllers();
     const allInstances = [...providers, ...controllers]
@@ -58,6 +61,12 @@ export class McpRegistryService implements OnApplicationBootstrap {
         token: wrapper.token,
       }));
 
+    const discovered: {
+      tools: string[];
+      resources: string[];
+      prompts: string[];
+    } = { tools: [], resources: [], prompts: [] };
+
     allInstances.forEach(({ instance, token }) => {
       this.metadataScanner.getAllMethodNames(instance).forEach((methodName) => {
         const methodRef = instance[methodName] as object;
@@ -65,17 +74,30 @@ export class McpRegistryService implements OnApplicationBootstrap {
 
         if (methodMetaKeys.includes(MCP_TOOL_METADATA_KEY)) {
           this.addDiscoveryTool(methodRef, token, methodName);
+          discovered.tools.push(`${token.toString()}.${methodName}`);
         }
 
         if (methodMetaKeys.includes(MCP_RESOURCE_METADATA_KEY)) {
           this.addDiscoveryResource(methodRef, token, methodName);
+          discovered.resources.push(`${token.toString()}.${methodName}`);
         }
 
         if (methodMetaKeys.includes(MCP_PROMPT_METADATA_KEY)) {
           this.addDiscoveryPrompt(methodRef, token, methodName);
+          discovered.prompts.push(`${token.toString()}.${methodName}`);
         }
       });
     });
+
+    this.logger.debug(
+      `Discovered tools: ${discovered.tools.length ? discovered.tools.join(', ') : 'none'}`,
+    );
+    this.logger.debug(
+      `Discovered resources: ${discovered.resources.length ? discovered.resources.join(', ') : 'none'}`,
+    );
+    this.logger.debug(
+      `Discovered prompts: ${discovered.prompts.length ? discovered.prompts.join(', ') : 'none'}`,
+    );
   }
 
   /**

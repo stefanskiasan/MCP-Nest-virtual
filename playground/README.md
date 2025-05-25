@@ -1,33 +1,74 @@
-# Playground
+# MCP-Nest Playground
 
-Easy way to test using the `npx @modelcontextprotocol/inspector`.
+A quick-start environment for testing and exploring MCP-Nest features without building a full application.
 
-### Using
+## Quick Start
 
-```sh
-# 1. start the playground server
+### Option 1: Test with MCP Inspector (Recommended)
+
+MCP Inspector provides a web-based UI to interact with your MCP server - perfect for testing tools, resources, and prompts visually.
+
+#### For HTTP+SSE Transport (Stateful Server)
+
+```bash
+# 1. Start the stateful server
 npx ts-node-dev --respawn ./playground/servers/server-stateful.ts
 
-# 2. make your code changes
-
-# 3. test it using the inspector
+# 2. Launch MCP Inspector
 npx @modelcontextprotocol/inspector
+
+# 3. In your browser at http://127.0.0.1:6274:
+#    - Set Transport Type to: SSE
+#    - Set URL to: http://localhost:3030/sse
 ```
 
-The last command will print the MCP Inspector URL. Open it in your browser, change the **Transport Type** to `SSE` and set the **URL** to the playground endpoint `http://localhost:3030/sse`.
+#### For Streamable HTTP Transport
 
-### Trying out with Streamable HTTP client
+```bash
+# 1. Start the server (stateful or stateless)
+npx ts-node-dev --respawn ./playground/servers/server-stateful.ts
+# OR
+npx ts-node-dev --respawn ./playground/servers/server-stateless.ts
 
-Streamable HTTP is still not supported in the MCP Inspector and has to be tried out by running the following command:
+# 2. Launch MCP Inspector
+npx @modelcontextprotocol/inspector
 
-```sh
- npx ts-node-dev --respawn ./playground/clients/http-streamable-client.ts
+# 3. In your browser at http://127.0.0.1:6274:
+#    - Set Transport Type to: Streamable HTTP
+#    - Set URL to: http://localhost:3030/mcp
 ```
 
-### Trying out with STDIO client
+#### For STDIO Transport
 
-Currently, the MCP STDIO client is supported, but multiple args are not so easy to handle in the inspector. To make testing easier, you can run the following command:
+```bash
+# 1. Run the MCP Inspector and configure it to use the STDIO server
+npx @modelcontextprotocol/inspector@0.13.0 npx ts-node-dev --respawn playground/servers/stdio.ts
 
-```sh
-npx ts-node-dev --respawn ./playground/stdio-client.ts
+
+# 2. In your browser:
+#    - Set Transport Type to: stdio
+```
+
+### Option 2: Test with Code Clients
+
+Use code clients when you need to:
+
+- Automate testing
+- Build custom integrations
+- Test specific scenarios programmatically
+
+```bash
+# Start your server first (choose one):
+npx ts-node-dev --respawn ./playground/servers/server-stateful.ts
+npx ts-node-dev --respawn ./playground/servers/server-stateless.ts
+
+# Then run a client:
+# For Streamable HTTP
+npx ts-node-dev --respawn ./playground/clients/http-streamable-client.ts
+
+# For HTTP+SSE (stateful server only)
+npx ts-node-dev --respawn ./playground/clients/http-sse.ts
+
+# For STDIO
+npx ts-node-dev --respawn ./playground/clients/stdio-client.ts
 ```

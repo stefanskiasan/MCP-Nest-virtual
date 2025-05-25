@@ -6,7 +6,6 @@ import {
   Get,
   Inject,
   Logger,
-  OnModuleInit,
   Post,
   Req,
   Res,
@@ -23,7 +22,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { McpOptions } from '../interfaces';
 import { McpExecutorService } from '../services/mcp-executor.service';
 import { McpRegistryService } from '../services/mcp-registry.service';
-import { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
+import { buildMcpCapabilities } from '../utils/capabilities-builder';
 
 /**
  * Creates a controller for handling Streamable HTTP connections and tool executions
@@ -36,15 +35,12 @@ export function createStreamableHttpController(
 ) {
   @Controller()
   @applyDecorators(...decorators)
-  class StreamableHttpController implements OnModuleInit {
+  class StreamableHttpController {
     public readonly logger = new Logger(StreamableHttpController.name);
     public transports: { [sessionId: string]: StreamableHTTPServerTransport } =
       {};
     public mcpServers: { [sessionId: string]: McpServer } = {};
 
-    // Singleton instances for stateless mode
-    public statelessTransport: StreamableHTTPServerTransport | null = null;
-    public statelessMcpServer: McpServer | null = null;
     public isStatelessMode: boolean = false;
 
     constructor(
@@ -54,59 +50,55 @@ export function createStreamableHttpController(
     ) {
       // Determine if we're in stateless mode
       this.isStatelessMode = !!options.streamableHttp?.statelessMode;
-
-      // Initialize stateless mode if needed
-      if (this.isStatelessMode) {
-        this.initializeStatelessMode()
-          .then(() => {
-            this.logger.debug('Stateless mode initialized');
-          })
-          .catch((error) => {
-            this.logger.error('Error initializing stateless mode:', error);
-          });
-      }
     }
 
     /**
-     * Initialize the stateless mode with singleton transport and server
+     * Create a new MCP server instance for stateless requests
      */
-    public async initializeStatelessMode(): Promise<void> {
-      this.logger.log('Initializing MCP Streamable HTTP in stateless mode');
-
-      // Create a singleton transport for all requests
-      this.statelessTransport = new StreamableHTTPServerTransport({
-        // statelessMode: true, // TODO: Uncomment when this PR is merged and released: https://github.com/modelcontextprotocol/typescript-sdk/pull/362
+    async createStatelessServer(req: Request): Promise<{
+      server: McpServer;
+      transport: StreamableHTTPServerTransport;
+    }> {
+      // Create a new transport for this request
+      const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse:
           this.options.streamableHttp?.enableJsonResponse || false,
       });
 
-      // TODO: Remove when this PR is merged and released: https://github.com/modelcontextprotocol/typescript-sdk/pull/362
-      (this.statelessTransport as any)._initialized = true;
+      // Create a new MCP server instance with dynamic capabilities
+      const capabilities = buildMcpCapabilities(
+        this.toolRegistry,
+        this.options,
+      );
+      this.logger.debug('Built MCP capabilities:', capabilities);
 
-      // Create a singleton MCP server instance
-      this.statelessMcpServer = new McpServer(
+      const server = new McpServer(
         { name: this.options.name, version: this.options.version },
         {
-          capabilities: this.options.capabilities || {
-            tools: {},
-            resources: {},
-            resourceTemplates: {},
-            prompts: {},
-          },
+          capabilities: capabilities,
+          instructions: this.options.instructions || '',
         },
       );
 
-      // Connect the transport to the MCP server
-      await this.statelessMcpServer.connect(this.statelessTransport);
-    }
+      // Connect the transport to the MCP server first
+      await server.connect(transport);
 
-    onModuleInit() {
-      this.logger.log(
-        `Initialized MCP Streamable HTTP controller at ${endpoint} in ${
-          this.isStatelessMode ? 'stateless' : 'stateful'
-        } mode`,
+      // Now resolve the request-scoped tool executor service
+      const contextId = ContextIdFactory.getByRequest(req);
+      const executor = await this.moduleRef.resolve(
+        McpExecutorService,
+        contextId,
+        { strict: false },
       );
+
+      // Register request handlers after connection
+      this.logger.debug(
+        'Registering request handlers for stateless MCP server',
+      );
+      executor.registerRequestHandlers(server, req);
+
+      return { server, transport };
     }
 
     /**
@@ -150,64 +142,37 @@ export function createStreamableHttpController(
       res: Response,
       body: unknown,
     ): Promise<void> {
-      if (!this.statelessTransport || !this.statelessMcpServer) {
-        await this.initializeStatelessMode();
-      }
-
-      // ToDo: This will likely change.
-      // Handle initialize requests directly
-      if (this.isInitializeRequest(body)) {
-        // Check and respond here
-        const acceptHeader = (req.headers['accept'] as string) || '';
-        const isEventStream = acceptHeader.includes('text/event-stream');
-        if (isEventStream) {
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.flushHeaders?.();
-        } else {
-          res.setHeader('Content-Type', 'application/json');
-        }
-        const payload: JSONRPCMessage = {
-          jsonrpc: '2.0',
-          id: (body as any).id,
-          result: {
-            protocolVersion: '2024-11-05',
-            capabilities: this.options.capabilities || {},
-            instructions: this.options.instructions || '',
-            serverInfo: {
-              name: this.options.name,
-              version: this.options.version,
-            },
-          },
-        };
-        if (isEventStream) {
-          const messageId = randomUUID() + '_' + Date.now();
-          res.write(
-            'event: message\nid: ' +
-              messageId +
-              '\ndata: ' +
-              JSON.stringify(payload) +
-              '\n\n',
-          );
-          res.end();
-        } else {
-          res.json(payload);
-        }
-        return;
-      }
-
-      // Resolve the request-scoped tool executor service
-      const contextId = ContextIdFactory.getByRequest(req);
-      const executor = await this.moduleRef.resolve(
-        McpExecutorService,
-        contextId,
-        { strict: false },
+      this.logger.debug(
+        `Handling stateless MCP request at ${req.url} with body: ${JSON.stringify(
+          body,
+        )}`,
       );
 
-      // Register request handlers with the user context from this specific request
-      executor.registerRequestHandlers(this.statelessMcpServer!, req);
+      let server: McpServer | null = null;
+      let transport: StreamableHTTPServerTransport | null = null;
 
-      // Handle the request with the singleton transport
-      await this.statelessTransport!.handleRequest(req, res, body);
+      try {
+        // Create a new server and transport for each request
+        const stateless = await this.createStatelessServer(req);
+        server = stateless.server;
+        transport = stateless.transport;
+
+        // Handle the request
+        await transport.handleRequest(req, res, body);
+
+        // Clean up when the response closes
+        res.on('close', () => {
+          this.logger.debug('Stateless request closed, cleaning up');
+          transport?.close();
+          server?.close();
+        });
+      } catch (error) {
+        this.logger.error('Error in stateless request handling:', error);
+        // Clean up on error
+        transport?.close();
+        server?.close();
+        throw error;
+      }
     }
 
     /**
@@ -218,6 +183,11 @@ export function createStreamableHttpController(
       res: Response,
       body: unknown,
     ): Promise<void> {
+      this.logger.debug(
+        `Handling stateful MCP request at ${req.url} with body: ${JSON.stringify(
+          body,
+        )}`,
+      );
       // Check for existing session ID
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
       let transport: StreamableHTTPServerTransport;
@@ -235,16 +205,18 @@ export function createStreamableHttpController(
             this.options.streamableHttp?.enableJsonResponse || false,
         });
 
-        // Create a new MCP server for this session
+        // Create a new MCP server for this session with dynamic capabilities
+        const capabilities = buildMcpCapabilities(
+          this.toolRegistry,
+          this.options,
+        );
+        this.logger.debug('Built MCP capabilities:', capabilities);
+
         const mcpServer = new McpServer(
           { name: this.options.name, version: this.options.version },
           {
-            capabilities: this.options.capabilities || {
-              tools: {},
-              resources: {},
-              resourceTemplates: {},
-              prompts: {},
-            },
+            capabilities,
+            instructions: this.options.instructions || '',
           },
         );
 
@@ -312,13 +284,21 @@ export function createStreamableHttpController(
     }
 
     /**
-     * GET endpoint for SSE streams
+     * GET endpoint for SSE streams - not supported in stateless mode
      */
-    @Get(endpoint)
+    @Get(`${globalApiPrefix}/${endpoint}`.replace(/\/+/g, '/'))
     @UseGuards(...guards)
     async handleGetRequest(@Req() req: Request, @Res() res: Response) {
       if (this.isStatelessMode) {
-        return this.handleStatelessRequest(req, res, req.body);
+        res.status(405).json({
+          jsonrpc: '2.0',
+          error: {
+            code: -32000,
+            message: 'Method not allowed in stateless mode',
+          },
+          id: null,
+        });
+        return;
       }
 
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
@@ -334,14 +314,20 @@ export function createStreamableHttpController(
     }
 
     /**
-     * DELETE endpoint for terminating sessions
+     * DELETE endpoint for terminating sessions - not supported in stateless mode
      */
-    @Delete(endpoint)
+    @Delete(`${globalApiPrefix}/${endpoint}`.replace(/\/+/g, '/'))
     @UseGuards(...guards)
     async handleDeleteRequest(@Req() req: Request, @Res() res: Response) {
       if (this.isStatelessMode) {
-        // In stateless mode, we don't have sessions to delete
-        res.status(200).end();
+        res.status(405).json({
+          jsonrpc: '2.0',
+          error: {
+            code: -32000,
+            message: 'Method not allowed in stateless mode',
+          },
+          id: null,
+        });
         return;
       }
 

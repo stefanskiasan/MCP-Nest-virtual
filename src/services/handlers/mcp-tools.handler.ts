@@ -19,6 +19,11 @@ export class McpToolsHandler extends McpHandlerBase {
   }
 
   registerHandlers(mcpServer: McpServer, httpRequest: Request) {
+    if (this.registry.getTools().length === 0) {
+      this.logger.debug('No tools registered, skipping tool handlers');
+      return;
+    }
+
     mcpServer.server.setRequestHandler(ListToolsRequestSchema, () => {
       const tools = this.registry.getTools().map((tool) => {
         // Create base schema

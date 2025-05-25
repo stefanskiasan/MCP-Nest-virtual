@@ -18,6 +18,11 @@ export class McpResourcesHandler extends McpHandlerBase {
   }
 
   registerHandlers(mcpServer: McpServer, httpRequest: Request) {
+    if (this.registry.getResources().length === 0) {
+      this.logger.debug('No resources registered, skipping resource handlers');
+      return;
+    }
+
     mcpServer.server.setRequestHandler(ListResourcesRequestSchema, () => {
       this.logger.debug('ListResourcesRequestSchema is being called');
       return {

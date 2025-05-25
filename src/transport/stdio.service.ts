@@ -1,34 +1,43 @@
-import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
-import { ModuleRef, ContextIdFactory } from '@nestjs/core';
-import { McpOptions, McpTransportType } from '../interfaces';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
+import { ContextIdFactory, ModuleRef } from '@nestjs/core';
+import { McpOptions, McpTransportType } from '../interfaces';
 import { McpExecutorService } from '../services/mcp-executor.service';
+import { McpRegistryService } from '../services/mcp-registry.service';
+import { buildMcpCapabilities } from '../utils/capabilities-builder';
 
 @Injectable()
-export class StdioService implements OnModuleInit {
+export class StdioService implements OnApplicationBootstrap {
   private readonly logger = new Logger(StdioService.name);
 
   constructor(
     @Inject('MCP_OPTIONS') private readonly options: McpOptions,
     private readonly moduleRef: ModuleRef,
+    private readonly toolRegistry: McpRegistryService,
   ) {}
 
-  async onModuleInit() {
+  async onApplicationBootstrap() {
     if (this.options.transport !== McpTransportType.STDIO) {
       return;
     }
     this.logger.log('Bootstrapping MCP STDIO...');
 
+    // Create a new MCP server instance with dynamic capabilities
+    const capabilities = buildMcpCapabilities(this.toolRegistry, this.options);
+    this.logger.debug('Built MCP capabilities:', capabilities);
+
+    // Create MCP server with dynamic capabilities
     const mcpServer = new McpServer(
       { name: this.options.name, version: this.options.version },
       {
-        capabilities: this.options.capabilities || {
-          tools: {},
-          resources: {},
-          prompts: {},
-          instructions: [],
-        },
+        capabilities,
+        instructions: this.options.instructions || '',
       },
     );
 

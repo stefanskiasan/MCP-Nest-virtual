@@ -6,8 +6,9 @@ import {
   VersioningType,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { McpModule } from '../src/mcp.module';
 import request from 'supertest';
+import { McpModule } from '../src/mcp.module';
+import { SimpleTool } from './sample/simple.tool';
 import { createSseClient } from './utils';
 
 @Controller({
@@ -34,6 +35,7 @@ describe('E2E: MCP Version', () => {
         }),
       ],
       controllers: [TestController],
+      providers: [SimpleTool],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -58,7 +60,7 @@ describe('E2E: MCP Version', () => {
     const client = await createSseClient(testPort);
     const tools = await client.listTools();
 
-    expect(tools.tools.length).toBe(0);
+    expect(tools.tools.length).toBe(1);
     await client.close();
   });
 

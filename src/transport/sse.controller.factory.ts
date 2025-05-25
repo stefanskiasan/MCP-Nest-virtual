@@ -1,26 +1,28 @@
 import {
   Body,
+  CanActivate,
   Controller,
   Get,
   Inject,
+  Logger,
+  OnModuleInit,
   Post,
   Req,
   Res,
   Type,
   UseGuards,
-  OnModuleInit,
   VERSION_NEUTRAL,
   applyDecorators,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
-import { CanActivate } from '@nestjs/common';
 import { ContextIdFactory, ModuleRef } from '@nestjs/core';
+import type { Request, Response } from 'express';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { buildMcpCapabilities } from '../utils/capabilities-builder';
 import { McpOptions } from '../interfaces';
-import { McpRegistryService } from '../services/mcp-registry.service';
 import { McpExecutorService } from '../services/mcp-executor.service';
+import { McpRegistryService } from '../services/mcp-registry.service';
 import { SsePingService } from '../services/sse-ping.service';
 
 /**
@@ -38,6 +40,7 @@ export function createSseController(
   })
   @applyDecorators(...decorators)
   class SseController implements OnModuleInit {
+    readonly logger = new Logger(SseController.name);
     // Note: Currently, storing transports and servers in memory makes this not viable for scaling out.
     // Redis can be used for this purpose, but considering that HTTP Streamable succeeds SSE then we can drop keeping this in memory.
 
@@ -76,16 +79,18 @@ export function createSseController(
       );
       const sessionId = transport.sessionId;
 
-      // Create a new MCP server for this session
+      // Create a new MCP server instance with dynamic capabilities
+      const capabilities = buildMcpCapabilities(
+        this.toolRegistry,
+        this.options,
+      );
+      this.logger.debug('Built MCP capabilities:', capabilities);
+
+      // Create a new MCP server for this session with dynamic capabilities
       const mcpServer = new McpServer(
         { name: this.options.name, version: this.options.version },
         {
-          capabilities: this.options.capabilities || {
-            tools: {},
-            resources: {},
-            resourceTemplates: {},
-            prompts: {},
-          },
+          capabilities,
           instructions: this.options.instructions || '',
         },
       );

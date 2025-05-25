@@ -19,6 +19,10 @@ export class McpPromptsHandler extends McpHandlerBase {
   }
 
   registerHandlers(mcpServer: McpServer, httpRequest: Request) {
+    if (this.registry.getPrompts().length === 0) {
+      this.logger.debug('No prompts registered, skipping prompt handlers');
+      return;
+    }
     mcpServer.server.setRequestHandler(ListPromptsRequestSchema, () => {
       this.logger.debug('ListPromptsRequestSchema is being called');
 

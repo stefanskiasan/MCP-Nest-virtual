@@ -29,8 +29,6 @@ export class McpExecutorService {
    * @param request - The current HTTP request object
    */
   registerRequestHandlers(mcpServer: McpServer, httpRequest: Request) {
-    this.logger.debug('Registering request handlers');
-
     this.toolsHandler.registerHandlers(mcpServer, httpRequest);
     this.resourcesHandler.registerHandlers(mcpServer, httpRequest);
     this.promptsHandler.registerHandlers(mcpServer, httpRequest);

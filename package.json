@@ -1,10 +1,16 @@
 {
   "name": "@rekog/mcp-nest",
-  "version": "1.6.0-alpha.0",
+  "version": "1.6.0-beta.0",
   "description": "NestJS module for creating Model Context Protocol (MCP) servers",
   "main": "dist/index.js",
   "license": "MIT",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -13,7 +19,7 @@
     "url": "https://github.com/rekog-labs/MCP-Nest"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json --sourceMap --inlineSources",
     "prepare": "npm run build",
     "start:playground": "ts-node-dev --respawn playground/servers/server.ts",
     "test": "npx --node-options=--experimental-vm-modules jest",

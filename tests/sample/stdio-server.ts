@@ -3,11 +3,8 @@ import { Inject, Injectable, Module, Scope } from '@nestjs/common';
 import { z } from 'zod';
 import { Context, McpTransportType, Tool } from '../../src';
 import { McpModule } from '../../src/mcp.module';
-// Import createStdioClient
 import { NestFactory, REQUEST } from '@nestjs/core';
 
-// --- Existing MockUserRepository, GreetingTool, GreetingToolRequestScoped, ToolRequestScoped classes ---
-// ... (Keep existing classes as they are) ...
 @Injectable()
 class MockUserRepository {
   async findByName(name: string) {
@@ -169,15 +166,13 @@ class OutputSchemaTool {
     };
   }
 }
-// --- End of existing classes ---
 
-// --- Create a simple module and bootstrap function for the STDIO server ---
 @Module({
   imports: [
     McpModule.forRoot({
       name: 'test-mcp-stdio-server',
       version: '0.0.1',
-      transport: McpTransportType.STDIO, // Use STDIO transport
+      transport: McpTransportType.STDIO,
       guards: [],
     }),
   ],

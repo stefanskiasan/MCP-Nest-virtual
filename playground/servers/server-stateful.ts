@@ -6,6 +6,7 @@ import { GreetingPrompt } from '../resources/greeting.prompt';
 import { GreetingResource } from '../resources/greeting.resource';
 import { GreetingTool } from '../resources/greeting.tool';
 
+// Note: The stateful server exposes SSE and Streamable HTTP endpoints.
 @Module({
   imports: [
     McpModule.forRoot({

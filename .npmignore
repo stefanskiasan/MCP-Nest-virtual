@@ -1,4 +1,16 @@
-src
-tsconfig.json
-.gitignore
+# Don't exclude src directory as it's needed for source maps
+# src
+.git
+.github
+.vscode
 node_modules
+playground
+tests
+coverage
+.eslintrc
+.prettierrc
+jest.config.js
+*.log
+.DS_Store
+*.tgz
+.gitignore
