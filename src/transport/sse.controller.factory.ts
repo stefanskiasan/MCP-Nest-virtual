@@ -73,6 +73,7 @@ export function createSseController(
      * SSE connection endpoint
      */
     @Get(sseEndpoint)
+    @UseGuards(...guards)
     async sse(@Res() res: Response) {
       const transport = new SSEServerTransport(
         normalizeEndpoint(
