@@ -18,13 +18,13 @@ cd docs/oauth
 
 **Step 1: Get the proxy**
 
-Download and set up the authentication proxy:
+Download and set up the authentication proxy ((see releases for other distributions)[https://github.com/wso2/open-mcp-auth-proxy/releases/]):
 
 ```bash
-wget https://github.com/wso2/open-mcp-auth-proxy/releases/download/v1.0.0/openmcpauthproxy_linux-v1.0.0.zip
-unzip openmcpauthproxy_linux-v1.0.0.zip
-mv ./openmcpauthproxy_linux-v1.0.0/openmcpauthproxy .
-rm -rf ./openmcpauthproxy_linux-v1.0.0 openmcpauthproxy_linux-v1.0.0.zip # cleanup
+wget https://github.com/wso2/open-mcp-auth-proxy/releases/download/v1.1.0/openmcpauthproxy_linux-v1.1.0.zip
+unzip openmcpauthproxy_linux-v1.1.0.zip
+mv ./openmcpauthproxy_linux-v1.1.0/openmcpauthproxy .
+rm -rf ./openmcpauthproxy_linux-v1.1.0 openmcpauthproxy_linux-v1.1.0.zip # cleanup
 ```
 
 **Step 2: Start everything up**
