@@ -180,6 +180,46 @@ class OutputSchemaTool {
   }
 }
 
+@Injectable()
+class InvalidOutputSchemaTool {
+  @Tool({
+    name: 'invalid-output-schema-tool',
+    description: 'Returns an object that does not match its outputSchema',
+    parameters: z.object({}),
+    outputSchema: z.object({
+      foo: z.string(),
+    }),
+  })
+  async execute() {
+    return { bar: 123 };
+  }
+}
+
+@Injectable()
+class NotMcpCompliantGreetingTool {
+  @Tool({
+    name: 'not-mcp-greeting',
+    description: 'Returns a plain object, not MCP-compliant',
+    parameters: z.object({ name: z.string().default('World') }),
+  })
+  async greet({ name }) {
+    return { greeting: `Hello, ${name}!` };
+  }
+}
+
+@Injectable()
+class NotMcpCompliantStructuredGreetingTool {
+  @Tool({
+    name: 'not-mcp-structured-greeting',
+    description: 'Returns a plain object with outputSchema',
+    parameters: z.object({ name: z.string().default('World') }),
+    outputSchema: z.object({ greeting: z.string() }),
+  })
+  async greet({ name }) {
+    return { greeting: `Hello, ${name}!` };
+  }
+}
+
 describe('E2E: MCP ToolServer', () => {
   let app: INestApplication;
   let statelessApp: INestApplication;
@@ -210,6 +250,9 @@ describe('E2E: MCP ToolServer', () => {
         MockUserRepository,
         ToolRequestScoped,
         OutputSchemaTool,
+        NotMcpCompliantGreetingTool,
+        NotMcpCompliantStructuredGreetingTool,
+        InvalidOutputSchemaTool,
       ],
     }).compile();
 
@@ -244,6 +287,9 @@ describe('E2E: MCP ToolServer', () => {
           MockUserRepository,
           ToolRequestScoped,
           OutputSchemaTool,
+          NotMcpCompliantGreetingTool,
+          NotMcpCompliantStructuredGreetingTool,
+          InvalidOutputSchemaTool,
         ],
       }).compile();
 
@@ -289,6 +335,18 @@ describe('E2E: MCP ToolServer', () => {
           ).toBeDefined();
           expect(
             tools.tools.find((t) => t.name === 'get-request-scoped'),
+          ).toBeDefined();
+          expect(
+            tools.tools.find((t) => t.name === 'output-schema-tool'),
+          ).toBeDefined();
+          expect(
+            tools.tools.find((t) => t.name === 'not-mcp-greeting'),
+          ).toBeDefined();
+          expect(
+            tools.tools.find((t) => t.name === 'not-mcp-structured-greeting'),
+          ).toBeDefined();
+          expect(
+            tools.tools.find((t) => t.name === 'invalid-output-schema-tool'),
           ).toBeDefined();
         } finally {
           await client.close();
@@ -441,6 +499,59 @@ describe('E2E: MCP ToolServer', () => {
             content: [{ type: 'text', text: 'any error' }],
             isError: true,
           });
+        } finally {
+          await client.close();
+        }
+      });
+
+      it('should transform non-MCP-compliant response into MCP-compliant payload', async () => {
+        const client = await clientCreator(port);
+        try {
+          const result: any = await client.callTool({
+            name: 'not-mcp-greeting',
+            arguments: { name: 'TestUser' },
+          });
+          expect(result).toHaveProperty('content');
+          expect(Array.isArray(result.content)).toBe(true);
+          expect(result.content[0].type).toBe('text');
+          expect(result.content[0].text).toContain('greeting');
+          expect(result.content[0].text).toContain('Hello, TestUser!');
+        } finally {
+          await client.close();
+        }
+      });
+
+      it('should transform non-MCP-compliant response with outputSchema into MCP-compliant payload with structuredContent', async () => {
+        const client = await clientCreator(port);
+        try {
+          const result: any = await client.callTool({
+            name: 'not-mcp-structured-greeting',
+            arguments: { name: 'TestUser' },
+          });
+          expect(result).toHaveProperty('structuredContent');
+          expect(result.structuredContent).toEqual({ greeting: 'Hello, TestUser!' });
+          expect(result).toHaveProperty('content');
+          expect(Array.isArray(result.content)).toBe(true);
+          expect(result.content[0].type).toBe('text');
+          expect(result.content[0].text).toContain('greeting');
+          expect(result.content[0].text).toContain('Hello, TestUser!');
+        } finally {
+          await client.close();
+        }
+      });
+
+      it('should return an MCP error object if tool result does not match outputSchema', async () => {
+        const client = await clientCreator(port);
+        try {
+          const result: any = await client.callTool({
+            name: 'invalid-output-schema-tool',
+            arguments: {},
+          });
+          expect(result).toHaveProperty('content');
+          expect(Array.isArray(result.content)).toBe(true);
+          expect(result.content[0].type).toBe('text');
+          expect(result.content[0].text).toContain('Tool result does not match');
+          expect(result).toHaveProperty('isError', true);
         } finally {
           await client.close();
         }
