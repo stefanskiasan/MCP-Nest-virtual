@@ -2,7 +2,7 @@ import { Progress } from '@modelcontextprotocol/sdk/types.js';
 import { Inject, Injectable, Module, Scope } from '@nestjs/common';
 import { z } from 'zod';
 import { Context, McpTransportType, Tool } from '../../src';
-import { McpModule } from '../../src/mcp.module';
+import { McpModule } from '../../src/mcp/mcp.module';
 import { NestFactory, REQUEST } from '@nestjs/core';
 
 @Injectable()
@@ -206,7 +206,6 @@ class InvalidOutputSchemaTool {
     return { bar: 123 };
   }
 }
-
 
 @Module({
   imports: [
