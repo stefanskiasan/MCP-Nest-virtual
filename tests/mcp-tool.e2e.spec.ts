@@ -1,4 +1,5 @@
 import { Progress } from '@modelcontextprotocol/sdk/types.js';
+import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { INestApplication, Inject, Injectable, Scope } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { z } from 'zod';
@@ -8,6 +9,8 @@ import {
   createSseClient,
   createStdioClient,
   createStreamableClient,
+  createSseClientWithElicitation,
+  createStreamableClientWithElicitation,
 } from './utils';
 import { REQUEST } from '@nestjs/core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -220,6 +223,65 @@ class NotMcpCompliantStructuredGreetingTool {
   }
 }
 
+@Injectable()
+export class GreetingToolWithElicitation {
+  @Tool({
+    name: 'hello-world-elicitation',
+    description:
+      'Returns a greeting and simulates a long operation with progress updates',
+    parameters: z.object({
+      name: z.string().default('World'),
+    }),
+  })
+  async sayHelloElicitation({ name }, context: Context, request: Request) {
+    try {
+      const res = context.mcpServer.server.getClientCapabilities();
+      if (!res?.elicitation) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Elicitation is not supported by the server. Thus this tool cannot be used.',
+            },
+          ],
+        };
+      }
+
+      const response = await context.mcpServer.server.elicitInput({
+        message: 'Please provide your name',
+        requestedSchema: {
+          type: 'object',
+          properties: {
+            surname: { type: 'string', description: 'Your surname' },
+          },
+        },
+      });
+      let fullName = '';
+      switch (response.action) {
+        case 'accept': {
+          const surname = response?.content?.surname as string;
+          fullName = `${name} ${surname}`;
+          break;
+        }
+        case 'decline':
+        case 'cancel':
+          fullName = name;
+          break;
+        default:
+          fullName = name;
+      }
+
+      return {
+        content: [{ type: 'text', text: `Hello, ${fullName}!` }],
+      };
+    } catch (error) {
+      return {
+        content: [{ type: 'text', text: `Error: ${error.message}` }],
+      };
+    }
+  }
+}
+
 describe('E2E: MCP ToolServer', () => {
   let app: INestApplication;
   let statelessApp: INestApplication;
@@ -253,6 +315,7 @@ describe('E2E: MCP ToolServer', () => {
         NotMcpCompliantGreetingTool,
         NotMcpCompliantStructuredGreetingTool,
         InvalidOutputSchemaTool,
+        GreetingToolWithElicitation,
       ],
     }).compile();
 
@@ -290,6 +353,7 @@ describe('E2E: MCP ToolServer', () => {
           NotMcpCompliantGreetingTool,
           NotMcpCompliantStructuredGreetingTool,
           InvalidOutputSchemaTool,
+          GreetingToolWithElicitation,
         ],
       }).compile();
 
@@ -560,6 +624,130 @@ describe('E2E: MCP ToolServer', () => {
       });
     });
   };
+
+  // Elicitation tests
+  const runElicitationTests = (
+    clientType: 'http+sse' | 'streamable http',
+    clientCreator: (port: number, options?: any) => Promise<Client>,
+    stateless = false,
+  ) => {
+    describe(`Elicitation tests using ${clientType} client`, () => {
+      let port: number;
+
+      beforeAll(async () => {
+        port = stateless ? statelessServerPort : statefulServerPort;
+      });
+
+      it('should handle elicitation in hello-world-elicitation tool', async () => {
+        const client = await clientCreator(port);
+        try {
+          const result: any = await client.callTool({
+            name: 'hello-world-elicitation',
+            arguments: { name: 'TestUser' },
+          });
+
+          expect(result.content).toBeDefined();
+          expect(result.content[0].type).toBe('text');
+          expect(result.content[0].text).toContain(
+            'Hello, TestUser TestSurname!',
+          );
+        } finally {
+          await client.close();
+        }
+      });
+
+      it('should list hello-world-elicitation tool', async () => {
+        const client = await clientCreator(port);
+        try {
+          const tools = await client.listTools();
+          const elicitationTool = tools.tools.find(
+            (t) => t.name === 'hello-world-elicitation',
+          );
+          expect(elicitationTool).toBeDefined();
+          expect(elicitationTool?.description).toContain('progress updates');
+        } finally {
+          await client.close();
+        }
+      });
+
+      it('should handle declined elicitation gracefully', async () => {
+        // Create a client that declines elicitation requests
+        const client = await clientCreator(port);
+
+        // Override the elicit request handler to decline
+        client.setRequestHandler(ElicitRequestSchema, () => ({
+          action: 'decline',
+        }));
+
+        try {
+          const result: any = await client.callTool({
+            name: 'hello-world-elicitation',
+            arguments: { name: 'TestUser' },
+          });
+
+          expect(result.content).toBeDefined();
+          expect(result.content[0].type).toBe('text');
+          // Should use default surname when elicitation is declined
+          expect(result.content[0].text).toContain('Hello, TestUser!');
+        } finally {
+          await client.close();
+        }
+      });
+
+      it('should handle cancelled elicitation gracefully', async () => {
+        // Create a client that cancels elicitation requests
+        const client = await clientCreator(port);
+
+        // Override the elicit request handler to cancel
+        client.setRequestHandler(ElicitRequestSchema, () => ({
+          action: 'cancel',
+        }));
+
+        try {
+          const result: any = await client.callTool({
+            name: 'hello-world-elicitation',
+            arguments: { name: 'TestUser' },
+          });
+
+          expect(result.content).toBeDefined();
+          expect(result.content[0].type).toBe('text');
+          // Should use default surname when elicitation is cancelled
+          expect(result.content[0].text).toContain('Hello, TestUser!');
+        } finally {
+          await client.close();
+        }
+      });
+    });
+  };
+
+  // Run elicitation tests (supported only by stateful servers)
+  runElicitationTests('http+sse', createSseClientWithElicitation);
+  runElicitationTests('streamable http', createStreamableClientWithElicitation);
+
+  // Test elicitation with non-elicitation clients
+  describe('Elicitation with non-elicitation clients', () => {
+    it('should handle elicitation tool call gracefully when client lacks elicitation capability', async () => {
+      // Use a regular client without elicitation capabilities
+      const client = await createSseClient(statefulServerPort);
+      try {
+        const result: any = await client.callTool({
+          name: 'hello-world-elicitation',
+          arguments: { name: 'TestUser' },
+        });
+
+        expect(result.content).toBeDefined();
+        expect(result.content[0].type).toBe('text');
+        // Should either error or fall back to default behavior
+        expect(
+          result.content[0].text.includes(
+            'Elicitation is not supported by the server. Thus this tool cannot be used.',
+          ),
+        ).toBe(true);
+      } finally {
+        await client.close();
+      }
+    });
+  });
 
   // Run tests using the HTTP+SSE MCP client
   runClientTests('http+sse', createSseClient, 'any-value');

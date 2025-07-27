@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
+import { Progress } from '@modelcontextprotocol/sdk/types.js';
+import { Injectable, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { z } from 'zod';
-import { Injectable, Module } from '@nestjs/common';
-import { Progress } from '@modelcontextprotocol/sdk/types.js';
+import { Context, Tool } from '../../src';
 import { McpModule } from '../../src/mcp/mcp.module';
-import { Tool, Context, McpTransportType } from '../../src';
 
 @Injectable()
 class MockUserRepository {

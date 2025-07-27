@@ -107,6 +107,7 @@ export function createSseController(
 
       // Store the transport and server for this session
       this.transports.set(sessionId, transport);
+
       this.mcpServers.set(sessionId, mcpServer);
 
       // Register the connection with the ping service

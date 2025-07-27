@@ -91,9 +91,7 @@ export class GreetingTool {
       } as Progress);
     }
 
-    return {
-      content: [{ type: 'text', text: greeting }],
-    };
+    return greeting;
   }
 
   @Resource({

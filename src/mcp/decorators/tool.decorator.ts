@@ -1,22 +1,18 @@
 import { SetMetadata } from '@nestjs/common';
 import { MCP_TOOL_METADATA_KEY } from './constants';
 import { z } from 'zod';
+import { ToolAnnotations as SdkToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 
 export interface ToolMetadata {
   name: string;
   description: string;
   parameters?: z.ZodTypeAny;
   outputSchema?: z.ZodTypeAny;
-  annotations?: ToolAnnotations;
+  annotations?: SdkToolAnnotations;
 }
 
-export interface ToolAnnotations {
-  title?: string;
-  readOnlyHint?: boolean;
-  destructiveHint?: boolean;
-  idempotentHint?: boolean;
-  openWorldHint?: boolean;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ToolAnnotations extends SdkToolAnnotations {}
 
 export interface ToolOptions {
   name?: string;

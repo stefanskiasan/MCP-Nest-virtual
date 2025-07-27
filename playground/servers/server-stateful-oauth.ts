@@ -55,7 +55,6 @@ dotenv.config();
     McpModule.forRoot({
       name: 'playground-mcp-server',
       version: '0.0.1',
-      apiPrefix: 'remote-auth',
       streamableHttp: {
         enableJsonResponse: false,
         sessionIdGenerator: () => randomUUID(),

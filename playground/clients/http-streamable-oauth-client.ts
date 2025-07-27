@@ -24,7 +24,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 // Configuration
-const DEFAULT_SERVER_URL = 'http://localhost:9091/mcp';
+const DEFAULT_SERVER_URL = 'http://localhost:3030/mcp';
 const CALLBACK_PORT = 8090; // Use different port than auth server (3001)
 const CALLBACK_URL = `http://localhost:${CALLBACK_PORT}/callback`;
 

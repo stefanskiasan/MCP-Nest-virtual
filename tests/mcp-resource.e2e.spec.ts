@@ -67,7 +67,8 @@ export class GreetingToolResource {
     name: 'hello-world-dynamic-multiple-paths-error',
     description: 'A simple greeting dynamic resource with multiple paths',
     mimeType: 'text/plain',
-    uriTemplate: 'mcp://hello-world-dynamic-multiple-paths-error/{userId}/{userName}',
+    uriTemplate:
+      'mcp://hello-world-dynamic-multiple-paths-error/{userId}/{userName}',
   })
   async sayHelloMultiplePathsDynamicError() {
     throw new Error('any error');
@@ -114,7 +115,9 @@ describe('E2E: MCP Resource Server', () => {
     });
 
     expect(
-      resourceTemplates.resourceTemplates.find((r) => r.name === 'hello-world-dynamic'),
+      resourceTemplates.resourceTemplates.find(
+        (r) => r.name === 'hello-world-dynamic',
+      ),
     ).toEqual({
       name: 'hello-world-dynamic',
       uriTemplate: 'mcp://hello-world-dynamic/{userName}',
@@ -125,16 +128,14 @@ describe('E2E: MCP Resource Server', () => {
     await client.close();
   });
 
-    it('should call the static resource', async () => {
+  it('should call the static resource', async () => {
     const client = await createSseClient(testPort);
 
     const result = await client.readResource({
       uri: 'mcp://hello-world-world',
     });
 
-    expect(result.contents[0].uri).toBe(
-      'mcp://hello-world-world',
-    );
+    expect(result.contents[0].uri).toBe('mcp://hello-world-world');
     expect(result.contents[0].mimeType).toBe('text/plain');
     expect(result.contents[0].text).toBe('Hello World');
 
