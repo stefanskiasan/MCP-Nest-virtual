@@ -6,38 +6,63 @@ export class GreetingResource {
   constructor() {}
 
   @Resource({
-    name: 'hello-world',
-    description: 'A simple hello world resource',
-    mimeType: 'text/plain',
-    uri: 'mcp://hello-world',
+    name: 'languages-informal-greetings',
+    description: 'Languages and their informal greeting phrases',
+    mimeType: 'application/json',
+    uri: 'mcp://languages/informal-greetings',
   })
-  sayHelloWorld({ uri }) {
-    return {
+  getLanguagesInformalGreetings({ uri }) {
+    const languages = {
+      en: 'Hey',
+      es: 'Qué tal',
+      fr: 'Salut',
+      de: 'Hi',
+      it: 'Ciao',
+      pt: 'Oi',
+      ja: 'やあ',
+      ko: '안녕',
+      zh: '嗨',
+    };
+    const result = {
       contents: [
         {
           uri: uri,
-          mimeType: 'text/plain',
-          text: `Hello world`,
+          mimeType: 'application/json',
+          text: JSON.stringify(languages, null, 2),
         },
       ],
     };
+    return result;
   }
 
   @ResourceTemplate({
-    name: 'hello-world',
-    description: 'A simple greeting resource',
-    mimeType: 'text/plain',
-    uriTemplate: 'mcp://hello-world/{name}',
+    name: 'user-language',
+    description: "Get a specific user's preferred language",
+    mimeType: 'application/json',
+    uriTemplate: 'mcp://users/{name}',
   })
-  sayHello({ uri, name }) {
-    return {
+  getUserLanguage({ uri, name }) {
+    const users = {
+      alice: 'en',
+      carlos: 'es',
+      marie: 'fr',
+      hans: 'de',
+      yuki: 'ja',
+      'min-jun': 'ko',
+      wei: 'zh',
+      sofia: 'it',
+      joão: 'pt',
+    };
+    const language = users[name.toLowerCase()] || 'en';
+    const result = {
       contents: [
         {
           uri: uri,
-          mimeType: 'text/plain',
-          text: `Hello ${name}`,
+          mimeType: 'application/json',
+          text: JSON.stringify({ name, language }, null, 2),
         },
       ],
     };
+    return result;
   }
 }

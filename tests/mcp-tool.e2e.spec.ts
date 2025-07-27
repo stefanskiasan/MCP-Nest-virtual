@@ -241,7 +241,7 @@ export class GreetingToolWithElicitation {
           content: [
             {
               type: 'text',
-              text: 'Elicitation is not supported by the server. Thus this tool cannot be used.',
+              text: 'Elicitation is not supported by the client. Thus this tool cannot be used.',
             },
           ],
         };
@@ -740,7 +740,7 @@ describe('E2E: MCP ToolServer', () => {
         // Should either error or fall back to default behavior
         expect(
           result.content[0].text.includes(
-            'Elicitation is not supported by the server. Thus this tool cannot be used.',
+            'Elicitation is not supported by the client. Thus this tool cannot be used.',
           ),
         ).toBe(true);
       } finally {

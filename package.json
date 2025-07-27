@@ -27,7 +27,7 @@
     "test:watch": "npx --node-options=--experimental-vm-modules jest --watch",
     "test:fastify": "ts-node playground/clients/http-fastify-client.ts",
     "lint": "eslint \"{src,apps,libs,tests}/**/*.ts\" --fix",
-    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\" \"playground/**/*.ts\" \"tests/**/*.ts\""
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": ">=1.10.0",

@@ -6,37 +6,56 @@ import { z } from 'zod';
 
 @Injectable()
 export class GreetingTool {
+  constructor() {}
+
   @Tool({
-    name: 'hello-world',
+    name: 'greet-user',
     description:
-      'Returns a greeting and simulates a long operation with progress updates',
+      "Returns a personalized greeting in the user's preferred language",
     parameters: z.object({
-      name: z.string().default('World'),
+      name: z.string().describe('The name of the person to greet'),
+      language: z
+        .string()
+        .describe('Language code (e.g., "en", "es", "fr", "de")'),
     }),
     annotations: {
-      title: 'Greeting Tool',
+      title: 'Multi-language Greeting Tool',
       destructiveHint: false,
       readOnlyHint: true,
       idempotentHint: true,
       openWorldHint: false,
     },
   })
-  async sayHello({ name }, context: Context, request: Request) {
-    let greeting: string;
-
-    // request is not defined for stdio server
-    if (request && typeof request.get === 'function') {
-      const userAgent = request.get('user-agent') || 'Unknown';
-      greeting = `Hello, ${name}! Your user agent is: ${userAgent}`;
-    } else {
-      greeting = `Hello, ${name}!`;
+  async sayHello({ name, language }, context: Context, request: Request) {
+    if (!name || !language) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Error: Missing required parameters name and language.',
+          },
+        ],
+      };
     }
+
+    const informalGreetings = {
+      en: 'Hey',
+      es: 'Qué tal',
+      fr: 'Salut',
+      de: 'Hi',
+      it: 'Ciao',
+      pt: 'Oi',
+      ja: 'やあ',
+      ko: '안녕',
+      zh: '嗨',
+    };
+
+    const greetingWord = informalGreetings[language] || informalGreetings['en'];
+    const greeting = `${greetingWord}, ${name}!`;
 
     const totalSteps = 5;
     for (let i = 0; i < totalSteps; i++) {
       await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Send a progress update.
       await context.reportProgress({
         progress: (i + 1) * 20,
         total: 100,
@@ -47,14 +66,14 @@ export class GreetingTool {
   }
 
   @Tool({
-    name: 'hello-world-elicitation',
+    name: 'greet-user-interactive',
     description:
-      'Returns a greeting and simulates a long operation with progress updates',
+      'Returns a personalized greeting with interactive language selection',
     parameters: z.object({
-      name: z.string().default('World'),
+      name: z.string().describe('The first name of the person to greet'),
     }),
     annotations: {
-      title: 'Greeting Tool with Elicitation',
+      title: 'Interactive Greeting Tool',
       destructiveHint: false,
       readOnlyHint: true,
       idempotentHint: true,
@@ -63,105 +82,161 @@ export class GreetingTool {
   })
   async sayHelloElicitation({ name }, context: Context, request: Request) {
     try {
-      let greeting: string;
-
       const res = context.mcpServer.server.getClientCapabilities();
       if (!res?.elicitation) {
-        return {
+        const result = {
           content: [
             {
               type: 'text',
-              text: 'Elicitation is not supported by the server. Thus this tool cannot be used.',
+              text: 'Elicitation is not supported by the client. Thus this tool cannot be used.',
             },
           ],
         };
+        return result;
       }
 
       const response = await context.mcpServer.server.elicitInput({
-        message: 'Please provide your name',
+        message: 'Please select your preferred language',
         requestedSchema: {
           type: 'object',
           properties: {
-            surname: { type: 'string', description: 'Your surname' },
+            language: {
+              type: 'string',
+              enum: ['en', 'es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh'],
+              description: 'Your preferred language for the greeting',
+            },
           },
         },
       });
-      let fullName = '';
+
+      let selectedLanguage = 'en';
       switch (response.action) {
         case 'accept': {
-          const surname = response?.content?.surname as string;
-          fullName = `${name} ${surname}`;
+          selectedLanguage = (response?.content?.language as string) || 'en';
           break;
         }
         case 'decline':
         case 'cancel':
-          fullName = name;
+          selectedLanguage = 'en';
           break;
         default:
-          fullName = name;
+          selectedLanguage = 'en';
       }
 
-      // request is not defined for stdio server
-      if (request && typeof request.get === 'function') {
-        const userAgent = request.get('user-agent') || 'Unknown';
-        greeting = `Hello, ${fullName}! Your user agent is: ${userAgent}`;
-      } else {
-        greeting = `Hello, ${fullName}!`;
-      }
+      const informalGreetings = {
+        en: 'Hey',
+        es: 'Qué tal',
+        fr: 'Salut',
+        de: 'Hi',
+        it: 'Ciao',
+        pt: 'Oi',
+        ja: 'やあ',
+        ko: '안녕',
+        zh: '嗨',
+      };
 
-      return {
+      const greetingWord =
+        informalGreetings[selectedLanguage] || informalGreetings['en'];
+      const greeting = `${greetingWord}, ${name}!`;
+
+      const result = {
         content: [{ type: 'text', text: greeting }],
       };
+
+      return result;
     } catch (error) {
-      return {
+      const result = {
         content: [{ type: 'text', text: `Error: ${error.message}` }],
       };
+      return result;
     }
   }
 
   @Tool({
-    name: 'hello-world-structured',
-    description:
-      'Returns a greeting and simulates a long operation with progress updates',
+    name: 'greet-user-structured',
+    description: 'Returns a structured greeting message with language metadata',
     parameters: z.object({
-      name: z.string().default('World'),
+      name: z.string().describe('The name of the person to greet'),
+      language: z
+        .string()
+        .describe('Language code (e.g., "en", "es", "fr", "de")'),
     }),
     outputSchema: z.object({
-      type: z.literal('text'),
-      text: z.string(),
+      greeting: z.string(),
+      language: z.string(),
+      languageName: z.string(),
     }),
     annotations: {
-      title: 'Greeting Tool',
+      title: 'Structured Greeting Tool',
       destructiveHint: false,
       readOnlyHint: true,
       idempotentHint: true,
       openWorldHint: false,
     },
   })
-  async sayHelloStructured({ name }, context: Context, request: Request) {
-    let greeting: string;
-
-    // request is not defined for stdio server
-    if (request && typeof request.get === 'function') {
-      const userAgent = request.get('user-agent') || 'Unknown';
-      greeting = `Hello, ${name}! Your user agent is: ${userAgent}`;
-    } else {
-      greeting = `Hello, ${name}!`;
+  async sayHelloStructured(
+    { name, language },
+    context: Context,
+    request: Request,
+  ) {
+    if (!name || !language) {
+      console.log(
+        '[greeting.tool.ts] Exiting sayHelloStructured (missing args)',
+      );
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Error: Missing required parameters name and language.',
+          },
+        ],
+      };
     }
+
+    const informalGreetings = {
+      en: 'Hey',
+      es: 'Qué tal',
+      fr: 'Salut',
+      de: 'Hi',
+      it: 'Ciao',
+      pt: 'Oi',
+      ja: 'やあ',
+      ko: '안녕',
+      zh: '嗨',
+    };
+
+    const languageNames = {
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German',
+      it: 'Italian',
+      pt: 'Portuguese',
+      ja: 'Japanese',
+      ko: 'Korean',
+      zh: 'Chinese',
+    };
+
+    const greetingWord = informalGreetings[language] || informalGreetings['en'];
+    const languageName = languageNames[language] || languageNames['en'];
+    const greeting = `${greetingWord}, ${name}!`;
 
     const totalSteps = 5;
     for (let i = 0; i < totalSteps; i++) {
       await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Send a progress update.
       await context.reportProgress({
         progress: (i + 1) * 20,
         total: 100,
       } as Progress);
     }
 
-    const structuredContent = { type: 'text', text: greeting };
-    return {
+    const structuredContent = {
+      greeting,
+      language: language || 'en',
+      languageName,
+    };
+
+    const result = {
       structuredContent,
       content: [
         {
@@ -170,5 +245,7 @@ export class GreetingTool {
         },
       ],
     };
+
+    return result;
   }
 }

@@ -7,25 +7,27 @@ export class GreetingPrompt {
   constructor() {}
 
   @Prompt({
-    name: 'hello-world',
-    description: 'A simple greeting prompt',
+    name: 'multilingual-greeting-guide',
+    description:
+      'Simple instruction for greeting users in their native languages',
     parameters: z.object({
       name: z.string().describe('The name of the person to greet'),
-      age: z.string().describe('The age of the person to greet'),
+      language: z.string().describe('The language to use for the greeting'),
     }),
   })
-  sayHello({ name, age }) {
-    return {
-      description: 'A simple greeting prompt',
+  getGreetingInstructions({ name, language }) {
+    const result = {
+      description: 'Greet users in their native languages!',
       messages: [
         {
           role: 'user',
           content: {
             type: 'text',
-            text: `Hello ${name}, you are ${age} years old`,
+            text: `Greet ${name} in their preferred language: ${language}`,
           },
         },
       ],
     };
+    return result;
   }
 }
