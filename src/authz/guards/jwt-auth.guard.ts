@@ -12,7 +12,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 @Injectable()
-export class JwtAuthGuard implements CanActivate {
+export class McpAuthJwtGuard implements CanActivate {
   constructor(private readonly jwtTokenService: JwtTokenService) {}
 
   canActivate(context: ExecutionContext): boolean {

@@ -6,8 +6,7 @@ import { randomUUID } from 'crypto';
 import * as dotenv from 'dotenv';
 import 'reflect-metadata';
 import { GitHubOAuthProvider, McpAuthModule, McpModule } from '../../src';
-import { JwtAuthGuard } from '../../src/authz/guards/jwt-auth.guard';
-import { GoogleOAuthProvider } from '../../src/authz/providers/google.provider';
+import { McpAuthJwtGuard } from '../../src/authz/guards/jwt-auth.guard';
 import { GreetingPrompt } from '../resources/greeting.prompt';
 import { GreetingResource } from '../resources/greeting.resource';
 import { GreetingTool } from '../resources/greeting.tool';
@@ -22,8 +21,8 @@ dotenv.config();
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       jwtSecret: process.env.JWT_SECRET!,
       serverUrl: process.env.SERVER_URL,
-      nodeEnv: process.env.NODE_ENV,
-      apiPrefix: 'remote-auth',
+      cookieSecure: process.env.NODE_ENV === 'production',
+      apiPrefix: 'auth',
       // endpoints: {
       //   wellKnown: '/.well-known/oauth-authorization-server',
       //   callback: '/remote-auth/auth/callback',
@@ -60,10 +59,10 @@ dotenv.config();
         sessionIdGenerator: () => randomUUID(),
         statelessMode: false,
       },
-      guards: [JwtAuthGuard],
+      guards: [McpAuthJwtGuard],
     }),
   ],
-  providers: [GreetingResource, GreetingTool, GreetingPrompt, JwtAuthGuard],
+  providers: [GreetingResource, GreetingTool, GreetingPrompt, McpAuthJwtGuard],
 })
 class AppModule {}
 
@@ -80,4 +79,4 @@ async function bootstrap() {
   await app.listen(3030);
   console.log('MCP OAuth Server running on http://localhost:3030');
 }
-bootstrap();
+void bootstrap();

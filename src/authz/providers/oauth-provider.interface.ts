@@ -35,8 +35,7 @@ export interface OAuthEndpointConfiguration {
   wellKnown?: string; // Default: '/.well-known/oauth-authorization-server'
   register?: string; // Default: '/register'
   authorize?: string; // Default: '/authorize'
-  auth?: string; // Default: '/auth'
-  callback?: string; // Default: '/auth/callback'
+  callback?: string; // Default: '/callback'
   token?: string; // Default: '/token'
   validate?: string; // Default: '/validate'
   revoke?: string; // Default: '/revoke'
@@ -68,9 +67,6 @@ export interface OAuthUserModuleOptions {
   // OAuth Session Configuration
   oauthSessionExpiresIn?: number; // in milliseconds
   authCodeExpiresIn?: number; // in milliseconds
-
-  // Environment Configuration
-  nodeEnv?: string; // 'development' | 'production'
 
   // Storage Configuration - single property for all storage options
   storeConfiguration?: StoreConfiguration;

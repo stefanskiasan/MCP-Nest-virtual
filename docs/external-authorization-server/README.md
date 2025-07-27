@@ -1,10 +1,12 @@
-# Securing Your Remote MCP Tools - MCP Authorization Spec
+# Securing Your Remote MCP Tools - External Authorization Server Setup
 
 Claude, VS Code, Cursor, and other MCP clients can connect to your tools over HTTP. This means if you deploy an MCP Server somewhere publicly accessible, you can configure MCP Clients to reach it over HTTP.
 
 That's awesome - but *publicly accessible* also means anyone on the internet can hit your endpoints and either steal your data or increase your compute costs.
 
-Let's fix that by adding authentication in accordance with the MCP specification. Here's how to get it working in 5 minutes, then we'll dig into what's actually happening and learn more about this part of the spec.
+Let's fix that by adding authentication in accordance with the MCP specification using an external authorization server. This approach keeps your MCP server focused on business logic while delegating all authentication concerns to a dedicated server.
+
+> **Note**: For a simpler setup with built-in OAuth support, see the [Built-in OAuth Module Guide](./built-in-oauth.md). This guide covers external authorization server setups for advanced scenarios.
 
 ### Try It Out
 

@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { McpAuthJwtGuard } from './guards/jwt-auth.guard';
 import { createMcpOAuthController } from './mcp-oauth.controller';
 import {
   OAuthUserModuleOptions as AuthUserModuleOptions,
@@ -39,8 +39,7 @@ export const DEFAULT_OPTIONS: OAuthModuleDefaults = {
     wellKnown: '/.well-known/oauth-authorization-server',
     register: '/register',
     authorize: '/authorize',
-    auth: '/auth',
-    callback: '/auth/callback',
+    callback: '/callback',
     token: '/token',
     validate: '/validate',
     revoke: '/revoke',
@@ -124,7 +123,7 @@ export class McpAuthModule {
       OAuthStrategyService,
       ClientService,
       JwtTokenService,
-      JwtAuthGuard,
+      McpAuthJwtGuard,
     ];
 
     // Add TypeOrmStore to providers if using TypeORM
@@ -146,7 +145,7 @@ export class McpAuthModule {
         JwtTokenService,
         'IOAuthStore',
         MemoryStore,
-        JwtAuthGuard,
+        McpAuthJwtGuard,
         OAuthStrategyService,
       ],
     };
@@ -166,11 +165,8 @@ export class McpAuthModule {
       // Ensure jwtIssuer defaults to serverUrl if not provided
       jwtIssuer:
         options.jwtIssuer || options.serverUrl || DEFAULT_OPTIONS.jwtIssuer,
-      // Derive cookieSecure from nodeEnv if not explicitly provided
       cookieSecure:
-        options.cookieSecure !== undefined
-          ? options.cookieSecure
-          : (options.nodeEnv || DEFAULT_OPTIONS.nodeEnv) === 'production',
+        options.cookieSecure || process.env.NODE_ENV === 'production',
     };
 
     // Final validation of resolved options
@@ -262,7 +258,6 @@ function prepareEndpoints(
 ) {
   const updatedDefaultEndpoints = {
     wellKnown: defaultEndpoints.wellKnown,
-    auth: normalizeEndpoint(`/${apiPrefix}/${defaultEndpoints.auth}`),
     callback: normalizeEndpoint(`/${apiPrefix}/${defaultEndpoints.callback}`),
     token: normalizeEndpoint(`/${apiPrefix}/${defaultEndpoints.token}`),
     validate: normalizeEndpoint(`/${apiPrefix}/${defaultEndpoints.validate}`),

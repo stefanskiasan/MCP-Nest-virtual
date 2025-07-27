@@ -14,7 +14,7 @@ import {
 import { createHash, randomBytes } from 'crypto';
 import { Request as ExpressRequest, NextFunction, Response } from 'express';
 import passport from 'passport';
-import { AuthenticatedRequest, JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AuthenticatedRequest, McpAuthJwtGuard } from './guards/jwt-auth.guard';
 import {
   OAuthEndpointConfiguration,
   OAuthModuleOptions,
@@ -92,7 +92,13 @@ export function createMcpOAuthController(
     }
 
     @Get(endpoints.authorize)
-    async authorize(@Query() query: any, @Res() res: Response) {
+    async authorize(
+      @Query() query: any,
+      @Req()
+      req: any,
+      @Res() res: Response,
+      @Next() next: NextFunction,
+    ) {
       const {
         response_type,
         client_id,
@@ -159,16 +165,6 @@ export function createMcpOAuthController(
       });
 
       // Redirect to the provider's auth endpoint
-      res.redirect(`/${endpoints.auth}`);
-    }
-
-    @Get(endpoints.auth)
-    authenticate(
-      @Req()
-      req: any,
-      @Res() res: Response,
-      @Next() next: NextFunction,
-    ) {
       passport.authenticate(STRATEGY_NAME, {
         state: req.cookies?.oauth_state,
       })(req, res, next);
@@ -358,7 +354,7 @@ export function createMcpOAuthController(
     }
 
     @Get(endpoints.validate)
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(McpAuthJwtGuard)
     validateToken(@Req() req: AuthenticatedRequest) {
       return {
         valid: true,

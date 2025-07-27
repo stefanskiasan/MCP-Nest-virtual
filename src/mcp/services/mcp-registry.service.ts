@@ -32,6 +32,8 @@ export type DiscoveredTool<T extends object> = {
   methodName: string;
 };
 
+export type InjectionTokenWithName = InjectionToken & { name: string };
+
 /**
  * Singleton service that discovers and registers tools during application bootstrap
  */
@@ -117,63 +119,48 @@ export class McpRegistryService implements OnApplicationBootstrap {
         token: wrapper.token,
       }));
 
-    const discovered: {
-      tools: string[];
-      resources: string[];
-      resourceTemplates: string[];
-      prompts: string[];
-    } = { tools: [], resources: [], resourceTemplates: [], prompts: [] };
-
     allInstances.forEach(({ instance, token }) => {
       this.metadataScanner.getAllMethodNames(instance).forEach((methodName) => {
         const methodRef = instance[methodName] as object;
         const methodMetaKeys = Reflect.getOwnMetadataKeys(methodRef);
 
         if (methodMetaKeys.includes(MCP_TOOL_METADATA_KEY)) {
-          this.addDiscoveryTool(mcpModuleId, methodRef, token, methodName);
-          discovered.tools.push(`${token.toString()}.${methodName}`);
+          this.addDiscoveryTool(
+            mcpModuleId,
+            methodRef,
+            token as InjectionTokenWithName,
+            methodName,
+          );
         }
 
         if (methodMetaKeys.includes(MCP_RESOURCE_METADATA_KEY)) {
-          this.addDiscoveryResource(mcpModuleId, methodRef, token, methodName);
-          discovered.resources.push(`${token.toString()}.${methodName}`);
+          this.addDiscoveryResource(
+            mcpModuleId,
+            methodRef,
+            token as InjectionTokenWithName,
+            methodName,
+          );
         }
 
         if (methodMetaKeys.includes(MCP_RESOURCE_TEMPLATE_METADATA_KEY)) {
           this.addDiscoveryResourceTemplate(
             mcpModuleId,
             methodRef,
-            token,
+            token as InjectionTokenWithName,
             methodName,
-          );
-          discovered.resourceTemplates.push(
-            `${token.toString()}.${methodName}`,
           );
         }
 
         if (methodMetaKeys.includes(MCP_PROMPT_METADATA_KEY)) {
-          this.addDiscoveryPrompt(mcpModuleId, methodRef, token, methodName);
-          discovered.prompts.push(`${token.toString()}.${methodName}`);
+          this.addDiscoveryPrompt(
+            mcpModuleId,
+            methodRef,
+            token as InjectionTokenWithName,
+            methodName,
+          );
         }
       });
     });
-
-    this.logger.debug(
-      `Discovered tools: ${discovered.tools.length ? discovered.tools.join(', ') : 'none'}`,
-    );
-    this.logger.debug(
-      `Discovered resources: ${discovered.resources.length ? discovered.resources.join(', ') : 'none'}`,
-    );
-    this.logger.debug(
-      `Discovered resource templates: ${
-        discovered.resourceTemplates.length
-          ? discovered.resourceTemplates.join(', ')
-          : 'none'
-      }`,
-    );
-    this.logger.debug(
-      `Discovered prompts: ${discovered.prompts.length ? discovered.prompts.join(', ') : 'none'}`,
-    );
   }
 
   /**
@@ -184,7 +171,7 @@ export class McpRegistryService implements OnApplicationBootstrap {
     metadataKey: string,
     mcpModuleId: string,
     methodRef: object,
-    token: InjectionToken,
+    token: InjectionTokenWithName,
     methodName: string,
   ) {
     const metadata: T = Reflect.getMetadata(metadataKey, methodRef);
@@ -208,9 +195,12 @@ export class McpRegistryService implements OnApplicationBootstrap {
   private addDiscoveryPrompt(
     mcpModuleId: string,
     methodRef: object,
-    token: InjectionToken,
+    token: InjectionTokenWithName,
     methodName: string,
   ) {
+    this.logger.debug(
+      `Prompt discovered: ${token.name}.${methodName} in module: ${mcpModuleId}`,
+    );
     this.addDiscovery<PromptMetadata>(
       'prompt',
       MCP_PROMPT_METADATA_KEY,
@@ -224,9 +214,12 @@ export class McpRegistryService implements OnApplicationBootstrap {
   private addDiscoveryTool(
     mcpModuleId: string,
     methodRef: object,
-    token: InjectionToken,
+    token: InjectionTokenWithName,
     methodName: string,
   ) {
+    this.logger.debug(
+      `Tool discovered: ${token.name}.${methodName} in module: ${mcpModuleId}`,
+    );
     this.addDiscovery<ToolMetadata>(
       'tool',
       MCP_TOOL_METADATA_KEY,
@@ -240,9 +233,12 @@ export class McpRegistryService implements OnApplicationBootstrap {
   private addDiscoveryResource(
     mcpModuleId: string,
     methodRef: object,
-    token: InjectionToken,
+    token: InjectionTokenWithName,
     methodName: string,
   ) {
+    this.logger.debug(
+      `Resource discovered: ${token.name}.${methodName} in module: ${mcpModuleId}`,
+    );
     this.addDiscovery<ResourceMetadata>(
       'resource',
       MCP_RESOURCE_METADATA_KEY,
@@ -256,9 +252,12 @@ export class McpRegistryService implements OnApplicationBootstrap {
   private addDiscoveryResourceTemplate(
     mcpModuleId: string,
     methodRef: object,
-    token: InjectionToken,
+    token: InjectionTokenWithName,
     methodName: string,
   ) {
+    this.logger.debug(
+      `Resource Template discovered: ${token.name}.${methodName} in module: ${mcpModuleId}`,
+    );
     this.addDiscovery<ResourceTemplateMetadata>(
       'resource-template',
       MCP_RESOURCE_TEMPLATE_METADATA_KEY,
