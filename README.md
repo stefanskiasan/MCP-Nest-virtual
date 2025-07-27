@@ -63,7 +63,7 @@ import { z } from 'zod';
 @Injectable()
 export class GreetingTool {
   @Tool({
-    name: 'hello-world',
+    name: 'greeting-tool',
     description: 'Returns a greeting with progress updates',
     parameters: z.object({
       name: z.string().default('World'),
