@@ -13,7 +13,7 @@ Welcome to the documentation for the `@rekog/mcp-nest` project! This index provi
 ### OAuth & Authorization
 
 - [External Authorization Server](./external-authorization-server/README.md) — Securing your MCP server with an external authorization server (Keycloak, Auth Proxy, etc).
-- [Built-in OAuth Module Guide](./built-in-authorization-server.md) — Using the built-in OAuth module for simpler setups.
+- [Built-in Authorization Server](./built-in-authorization-server.md) — Using the built-in Authorization Server for simpler setups.
 
 ## Playground
 

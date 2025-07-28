@@ -1,4 +1,4 @@
-# Built-in OAuth Authorization Module
+# Built-in Authorization Server
 
 The `McpAuthModule` provides a complete OAuth 2.1 compliant Identity Provider (IdP) implementation for securing MCP servers. It fully implements the [MCP Authorization specification (2025-06-18)](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization) and includes built-in support for popular OAuth providers like [GitHub](../src/authz/providers/github.provider.ts) and [Google](../src/authz/providers/google.provider.ts).
 

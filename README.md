@@ -17,14 +17,17 @@ With `@rekog/mcp-nest` you define tools, resources, and prompts in a way that's 
 
 ## Features
 
-- 🚀 **Multi-Transport Support**: HTTP+SSE, Streamable HTTP, and STDIO
+- 🚀 **[Multi-Transport Support](docs/server-examples.md#multiple-transport-types)**: HTTP+SSE, Streamable HTTP, and STDIO
 - 🔧 **[Tools](docs/tools.md)**: Expose NestJS methods as MCP tools with automatic discovery and Zod validation
 - 📁 **[Resources](docs/resources.md)**: Serve content and data through MCP resource system
 - 📚 **[Resource Templates](docs/resource-templates.md)**: Dynamic resources with parameterized URIs
 - 💬 **[Prompts](docs/prompts.md)**: Define reusable prompt templates for AI interactions
 - 🛠️ **[Tool Elicitation](docs/tools.md#interactive-tool-calls)**: Interactive tool calls with user input elicitation
-- 📊 **Progress Notifications**: Real-time progress updates for long-running operations
-- 🔒 **[Authentication](docs/oauth/authorization.md)**: Guard-based security with OAuth support
+- 📊 **[Progress Notifications](docs/tools.md#tool-with-progress-reporting)**: Real-time progress updates for long-running operations
+- 🔐 **[Guard-based Authentication](docs/server-examples.md#server-with-authentication)**: Guard-based security with OAuth support
+- 🌐 **[External Authorization Server](docs/external-authorization-server/README.md)** — Securing your MCP server with an external authorization server (Keycloak, Auth Proxy, etc).
+- 🏠 **[Built-in Authorization Server](docs/built-in-authorization-server.md)** — Using the built-in Authorization Server for simpler setups.
+
 - 🌐 **HTTP Request Access**: Full access to request context within MCP handlers
 - 💉 **Dependency Injection**: Leverage NestJS DI system throughout MCP components
 

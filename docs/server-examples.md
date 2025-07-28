@@ -41,19 +41,23 @@ void bootstrap();
 ```
 
 **Endpoints exposed:**
+
 - `POST /mcp` - Main MCP operations
 - `GET /mcp` - SSE stream for real-time updates
 - `DELETE /mcp` - Session termination
 
 **Run:**
+
 ```bash
 ts-node-dev --respawn playground/servers/server-stateful.ts
 ```
 
 **Test:**
+
 ```bash
 npx @modelcontextprotocol/inspector@0.16.2
 ```
+
 Connect to: `http://localhost:3030/mcp`
 
 ## HTTP Server (Stateless)
@@ -80,9 +84,11 @@ class AppModule {}
 ```
 
 **Endpoints exposed:**
+
 - `POST /mcp` - All MCP operations
 
 **Run:**
+
 ```bash
 ts-node-dev --respawn playground/servers/server-stateless.ts
 ```
@@ -117,12 +123,14 @@ void bootstrap();
 ```
 
 **Run:**
+
 ```bash
 ts-node-dev --respawn playground/servers/stdio.ts
 ```
 
 **Test with MCP Client:**
 After building, configure in your MCP client:
+
 ```json
 {
   "mcpServers": {
@@ -136,7 +144,7 @@ After building, configure in your MCP client:
 
 ## Multiple Transport Types
 
-Enable multiple transport types in one server:
+**By default, all three transport types are enabled** (SSE, Streamable HTTP, and STDIO). You can selectively enable only specific transports by providing the `transport` array:
 
 ```typescript
 @Module({
@@ -147,7 +155,7 @@ Enable multiple transport types in one server:
       transport: [
         McpTransportType.SSE,
         McpTransportType.STREAMABLE_HTTP,
-        McpTransportType.STDIO
+        // McpTransportType.STDIO // Uncomment to enable STDIO
       ],
     }),
   ],
@@ -157,6 +165,7 @@ class AppModule {}
 ```
 
 **Endpoints exposed:**
+
 - `GET /sse` - SSE connection
 - `POST /messages` - Tool execution (SSE transport)
 - `POST /mcp` - Streamable HTTP operations
@@ -203,6 +212,7 @@ class AppModule {}
 ```
 
 **Endpoints exposed:**
+
 - `GET /api/v1/events` - SSE connection
 - `POST /api/v1/chat` - Messages
 - `POST /api/v1/mcp-operations` - MCP operations
@@ -225,6 +235,7 @@ async function bootstrap() {
 ```
 
 **Run:**
+
 ```bash
 ts-node-dev --respawn playground/servers/server-stateful-fastify.ts
 ```
@@ -236,12 +247,12 @@ Exclude MCP endpoints from global prefixes:
 ```typescript
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Apply global prefix but exclude MCP endpoints
-  app.setGlobalPrefix('/api', { 
-    exclude: ['sse', 'messages', 'mcp'] 
+  app.setGlobalPrefix('/api', {
+    exclude: ['sse', 'messages', 'mcp']
   });
-  
+
   await app.listen(3030);
 }
 ```
@@ -249,15 +260,19 @@ async function bootstrap() {
 ## Testing Your Servers
 
 ### Using MCP Inspector
+
 1. Start your server
 2. Run the inspector:
+
    ```bash
    npx @modelcontextprotocol/inspector@0.16.2
    ```
+
 3. Connect to your server URL
 4. Test tools, resources, and prompts interactively
 
 ### Using curl (HTTP servers)
+
 ```bash
 # List available tools
 curl -X POST http://localhost:3030/mcp \
@@ -279,8 +294,9 @@ curl -X POST http://localhost:3030/mcp \
 ## Example Locations
 
 Complete examples can be found in:
+
 - `playground/servers/server-stateful.ts` - Stateful HTTP server
-- `playground/servers/server-stateless.ts` - Stateless HTTP server  
+- `playground/servers/server-stateless.ts` - Stateless HTTP server
 - `playground/servers/stdio.ts` - STDIO server
 - `playground/servers/server-stateful-fastify.ts` - Fastify server
 - `playground/servers/server-stateful-oauth.ts` - Server with OAuth
