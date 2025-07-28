@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MemoryStore } from './memory-store.service';
-import { OAuthClient } from './oauth-store.interface';
+import { OAuthClient, AuthorizationCode } from './oauth-store.interface';
+import { OAuthSession } from '../providers/oauth-provider.interface';
 
 describe('MemoryStore', () => {
   let service: MemoryStore;
@@ -235,6 +236,241 @@ describe('MemoryStore', () => {
       // Should be consistent across multiple calls
       const clientId2 = service.generateClientId(client as OAuthClient);
       expect(clientId).toBe(clientId2);
+    });
+  });
+
+  describe('Client Management', () => {
+    const mockClient: OAuthClient = {
+      client_id: 'test-client-id',
+      client_name: 'Test Client',
+      client_description: 'A test OAuth client',
+      logo_uri: 'https://example.com/logo.png',
+      client_uri: 'https://example.com',
+      developer_name: 'Test Developer',
+      developer_email: 'test@example.com',
+      redirect_uris: ['http://localhost:3000/callback'],
+      grant_types: ['authorization_code', 'refresh_token'],
+      response_types: ['code'],
+      token_endpoint_auth_method: 'none',
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    describe('storeClient', () => {
+      it('should store a client and return it', async () => {
+        const result = await service.storeClient(mockClient);
+        expect(result).toEqual(mockClient);
+      });
+
+      it('should allow retrieving the stored client', async () => {
+        await service.storeClient(mockClient);
+        const retrieved = await service.getClient(mockClient.client_id);
+        expect(retrieved).toEqual(mockClient);
+      });
+
+      it('should overwrite existing client with same ID', async () => {
+        await service.storeClient(mockClient);
+
+        const updatedClient = { ...mockClient, client_name: 'Updated Client' };
+        await service.storeClient(updatedClient);
+
+        const retrieved = await service.getClient(mockClient.client_id);
+        expect(retrieved?.client_name).toBe('Updated Client');
+      });
+    });
+
+    describe('getClient', () => {
+      it('should return undefined for non-existent client', async () => {
+        const result = await service.getClient('non-existent-id');
+        expect(result).toBeUndefined();
+      });
+
+      it('should return the correct client when it exists', async () => {
+        await service.storeClient(mockClient);
+        const result = await service.getClient(mockClient.client_id);
+        expect(result).toEqual(mockClient);
+      });
+    });
+
+    describe('findClient', () => {
+      it('should return undefined for non-existent client name', async () => {
+        const result = await service.findClient('Non-existent Client');
+        expect(result).toBeUndefined();
+      });
+
+      it('should find client by exact name match', async () => {
+        await service.storeClient(mockClient);
+        const result = await service.findClient(mockClient.client_name);
+        expect(result).toEqual(mockClient);
+      });
+
+      it('should be case sensitive', async () => {
+        await service.storeClient(mockClient);
+        const result = await service.findClient(
+          mockClient.client_name.toUpperCase(),
+        );
+        expect(result).toBeUndefined();
+      });
+
+      it('should return first match when multiple clients exist', async () => {
+        const client1 = { ...mockClient, client_id: 'client-1' };
+        const client2 = {
+          ...mockClient,
+          client_id: 'client-2',
+          client_name: 'Different Client',
+        };
+
+        await service.storeClient(client1);
+        await service.storeClient(client2);
+
+        const result = await service.findClient(client1.client_name);
+        expect(result).toEqual(client1);
+      });
+    });
+  });
+
+  describe('Authorization Code Management', () => {
+    const mockAuthCode: AuthorizationCode = {
+      code: 'test-auth-code',
+      user_id: 'user-123',
+      client_id: 'client-123',
+      redirect_uri: 'http://localhost:3000/callback',
+      code_challenge: 'test-challenge',
+      code_challenge_method: 'S256',
+      expires_at: Date.now() + 600000, // 10 minutes from now
+      github_access_token: 'github-token-123',
+    };
+
+    describe('storeAuthCode', () => {
+      it('should store an authorization code', async () => {
+        await service.storeAuthCode(mockAuthCode);
+        const retrieved = await service.getAuthCode(mockAuthCode.code);
+        expect(retrieved).toEqual(mockAuthCode);
+      });
+
+      it('should overwrite existing code with same value', async () => {
+        await service.storeAuthCode(mockAuthCode);
+
+        const updatedCode = { ...mockAuthCode, user_id: 'updated-user' };
+        await service.storeAuthCode(updatedCode);
+
+        const retrieved = await service.getAuthCode(mockAuthCode.code);
+        expect(retrieved?.user_id).toBe('updated-user');
+      });
+    });
+
+    describe('getAuthCode', () => {
+      it('should return undefined for non-existent code', async () => {
+        const result = await service.getAuthCode('non-existent-code');
+        expect(result).toBeUndefined();
+      });
+
+      it('should return the correct authorization code when it exists', async () => {
+        await service.storeAuthCode(mockAuthCode);
+        const result = await service.getAuthCode(mockAuthCode.code);
+        expect(result).toEqual(mockAuthCode);
+      });
+    });
+
+    describe('removeAuthCode', () => {
+      it('should remove an authorization code', async () => {
+        await service.storeAuthCode(mockAuthCode);
+        await service.removeAuthCode(mockAuthCode.code);
+
+        const retrieved = await service.getAuthCode(mockAuthCode.code);
+        expect(retrieved).toBeUndefined();
+      });
+
+      it('should not throw when removing non-existent code', async () => {
+        await expect(
+          service.removeAuthCode('non-existent-code'),
+        ).resolves.not.toThrow();
+      });
+    });
+  });
+
+  describe('OAuth Session Management', () => {
+    const mockSession: OAuthSession = {
+      sessionId: 'session-123',
+      state: 'test-state',
+      clientId: 'client-123',
+      redirectUri: 'http://localhost:3000/callback',
+      codeChallenge: 'test-challenge',
+      codeChallengeMethod: 'S256',
+      oauthState: 'oauth-state-123',
+      resource: 'test-resource',
+      expiresAt: Date.now() + 3600000, // 1 hour from now
+    };
+
+    const expiredSession: OAuthSession = {
+      ...mockSession,
+      sessionId: 'expired-session',
+      expiresAt: Date.now() - 1000, // 1 second ago
+    };
+
+    describe('storeOAuthSession', () => {
+      it('should store an OAuth session', async () => {
+        const sessionId = 'session-123';
+        await service.storeOAuthSession(sessionId, mockSession);
+
+        const retrieved = await service.getOAuthSession(sessionId);
+        expect(retrieved).toEqual(mockSession);
+      });
+
+      it('should overwrite existing session with same ID', async () => {
+        const sessionId = 'session-123';
+        await service.storeOAuthSession(sessionId, mockSession);
+
+        const updatedSession = { ...mockSession, state: 'updated-state' };
+        await service.storeOAuthSession(sessionId, updatedSession);
+
+        const retrieved = await service.getOAuthSession(sessionId);
+        expect(retrieved?.state).toBe('updated-state');
+      });
+    });
+
+    describe('getOAuthSession', () => {
+      it('should return undefined for non-existent session', async () => {
+        const result = await service.getOAuthSession('non-existent-session');
+        expect(result).toBeUndefined();
+      });
+
+      it('should return the correct OAuth session when it exists', async () => {
+        const sessionId = 'session-123';
+        await service.storeOAuthSession(sessionId, mockSession);
+
+        const result = await service.getOAuthSession(sessionId);
+        expect(result).toEqual(mockSession);
+      });
+
+      it('should return undefined and auto-remove expired sessions', async () => {
+        const sessionId = 'expired-session';
+        await service.storeOAuthSession(sessionId, expiredSession);
+
+        const result = await service.getOAuthSession(sessionId);
+        expect(result).toBeUndefined();
+
+        // Verify it was actually removed
+        const result2 = await service.getOAuthSession(sessionId);
+        expect(result2).toBeUndefined();
+      });
+    });
+
+    describe('removeOAuthSession', () => {
+      it('should remove an OAuth session', async () => {
+        const sessionId = 'session-123';
+        await service.storeOAuthSession(sessionId, mockSession);
+        await service.removeOAuthSession(sessionId);
+
+        const retrieved = await service.getOAuthSession(sessionId);
+        expect(retrieved).toBeUndefined();
+      });
+
+      it('should not throw when removing non-existent session', async () => {
+        await expect(
+          service.removeOAuthSession('non-existent-session'),
+        ).resolves.not.toThrow();
+      });
     });
   });
 });
