@@ -5,6 +5,7 @@ Tools are functions that AI agents can execute to perform actions or computation
 ## Basic Tool
 
 ```typescript
+import type { Request } from 'express';
 import { Injectable } from '@nestjs/common';
 import { Tool, Context } from '@rekog/mcp-nest';
 import { z } from 'zod';
@@ -31,6 +32,36 @@ export class GreetingTool {
   }
 }
 ```
+
+### Understanding Tool Method Parameters
+
+Every tool method receives exactly **three parameters** in this order:
+
+1. **`args`** (first parameter): The validated input parameters as defined by the `parameters` Zod schema in the `@Tool` decorator.
+
+2. **`context: Context`** (second parameter): The MCP execution context providing access to:
+   - `reportProgress()` - Method to report progress updates to the client
+   - `mcpServer` - Access to the underlying MCP server instance for advanced operations like elicitation
+   - `mcpRequest` - The MCP request object
+   - Logging capabilities and other contextual information
+
+3. **`request: Request`** (third parameter): The original HTTP request object (Express/Fastify), providing access to headers, query parameters, authentication data, and other HTTP-specific information. This parameter is `undefined` when using STDIO transport.
+
+### Tool Decorator Properties
+
+The `@Tool()` decorator accepts a configuration object with the following properties:
+
+- **`name`** (required): Unique identifier for the tool within your MCP server
+- **`description`** (required): Human-readable description explaining what the tool does
+- **`parameters`** (required): Zod schema defining the expected input parameters and their validation rules
+- **`outputSchema`** (optional): Zod schema for validating and structuring the tool's return value
+- **`annotations`** (optional): Metadata hints for AI agents, including:
+  - `readOnlyHint`: Indicates if the tool only reads data without side effects
+  - `destructiveHint`: Warns if the tool modifies or deletes data
+  - `idempotentHint`: Indicates if repeated calls with same input produce same output
+  - `openWorldHint`: Suggests if the tool's behavior is predictable or may vary
+
+For detailed type definitions, refer to the `Context` interface and `ToolOptions` type in the `@rekog/mcp-nest` package.
 
 ## Tool with Progress Reporting
 
@@ -118,30 +149,6 @@ async sayHelloInteractive({ name }, context: Context) {
     : 'en';
 
   return `Hello, ${name}! (in ${selectedLanguage})`;
-}
-```
-
-## Tool Annotations
-
-Add metadata to your tools:
-
-```typescript
-@Tool({
-  name: 'read-file',
-  description: 'Reads a file safely',
-  parameters: z.object({
-    path: z.string(),
-  }),
-  annotations: {
-    title: 'Safe File Reader',
-    destructiveHint: false,    // Tool doesn't modify data
-    readOnlyHint: true,        // Tool only reads data
-    idempotentHint: true,      // Same input = same output
-    openWorldHint: false,      // Tool has predictable behavior
-  },
-})
-async readFile({ path }) {
-  // Implementation
 }
 ```
 
