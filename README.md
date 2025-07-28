@@ -25,11 +25,10 @@ With `@rekog/mcp-nest` you define tools, resources, and prompts in a way that's 
 - 🛠️ **[Tool Elicitation](docs/tools.md#interactive-tool-calls)**: Interactive tool calls with user input elicitation
 - 📊 **[Progress Notifications](docs/tools.md#tool-with-progress-reporting)**: Real-time progress updates for long-running operations
 - 🔐 **[Guard-based Authentication](docs/server-examples.md#server-with-authentication)**: Guard-based security with OAuth support
-- 🌐 **[External Authorization Server](docs/external-authorization-server/README.md)** — Securing your MCP server with an external authorization server (Keycloak, Auth Proxy, etc).
-- 🏠 **[Built-in Authorization Server](docs/built-in-authorization-server.md)** — Using the built-in Authorization Server for simpler setups.
-
-- 🌐 **HTTP Request Access**: Full access to request context within MCP handlers
-- 💉 **Dependency Injection**: Leverage NestJS DI system throughout MCP components
+- 🏠 **[Built-in Authorization Server](docs/built-in-authorization-server.md)** — Using the built-in Authorization Server for easy setups. **(Beta)**
+- 🌐 **[External Authorization Server](docs/external-authorization-server/README.md)** — Securing your MCP server with an external authorization server (Keycloak, Auth0, etc).
+- 🌐 **[HTTP Request Access](docs/tools.md#understanding-tool-method-parameters)**: Full access to request context within MCP handlers
+- 💉 **[Dependency Injection](docs/dependency-injection.md)**: Leverage NestJS DI system throughout MCP components
 
 ## Installation
 
@@ -86,8 +85,8 @@ export class GreetingTool {
 - **[Resource Templates Guide](docs/resource-templates.md)** - Create parameterized resources
 - **[Prompts Guide](docs/prompts.md)** - Build reusable prompt templates
 - **[Built-in Authorization Server](docs/built-in-authorization-server.md)** - Secure your MCP server with built-in OAuth
-- **[External Authorization Server](docs/oauth/authorization.md)** - Understand the MCP authorization flow
-- **[Server examples](docs/examples.md)** - MCP servers examples (Streamable HTTP, HTTP, and STDIO) and with Fastify support
+- **[External Authorization Server](docs/external-authorization-server/README.md)** - Securing your MCP server with an external authorization server (Keycloak, Auth0, etc)
+- **[Server examples](docs/server-examples.md)** - MCP servers examples (Streamable HTTP, HTTP, and STDIO) and with Fastify support
 
 ## Playground
 
