@@ -26,6 +26,9 @@ export class OAuthSessionEntity {
   @Column({ nullable: true })
   resource?: string;
 
+  @Column({ nullable: true })
+  scope?: string;
+
   @Column('bigint')
   expiresAt: number;
 

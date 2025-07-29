@@ -21,6 +21,7 @@ dotenv.config();
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       jwtSecret: process.env.JWT_SECRET!,
       serverUrl: process.env.SERVER_URL,
+      resource: process.env.SERVER_URL + '/mcp',
       cookieSecure: process.env.NODE_ENV === 'production',
       apiPrefix: 'auth',
       // endpoints: {

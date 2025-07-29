@@ -23,6 +23,9 @@ export class AuthorizationCodeEntity {
   @Column('bigint')
   expires_at: number;
 
+  @Column()
+  resource: string;
+
   @Column({ nullable: true })
   used_at?: Date;
 

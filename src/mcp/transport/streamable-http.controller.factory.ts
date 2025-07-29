@@ -215,6 +215,10 @@ export function createStreamableHttpController(
             (() => randomUUID()),
           enableJsonResponse:
             this.options.streamableHttp?.enableJsonResponse || false,
+          onsessioninitialized: (sessionId: string) => {
+            this.logger.debug(`Session initialized: ${sessionId}`);
+            this.transports[sessionId] = transport;
+          },
         });
 
         // Create a new MCP server for this session with dynamic capabilities

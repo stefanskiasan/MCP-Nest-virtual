@@ -23,6 +23,8 @@ export interface AuthorizationCode {
   redirect_uri: string;
   code_challenge: string;
   code_challenge_method: string;
+  resource?: string;
+  scope?: string;
   expires_at: number;
   used_at?: Date;
   github_access_token: string;

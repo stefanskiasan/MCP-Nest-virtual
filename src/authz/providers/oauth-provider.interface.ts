@@ -53,7 +53,7 @@ export interface OAuthUserModuleOptions {
 
   // Server Configuration
   serverUrl?: string;
-
+  resource?: string; // should be the endpoint clients connect to, e.g.: 'https://localhost:3000/mcp'
   // JWT Configuration
   jwtIssuer?: string;
   jwtAudience?: string;
@@ -78,6 +78,7 @@ export interface OAuthUserModuleOptions {
 
 export interface OAuthModuleDefaults {
   serverUrl: string;
+  resource: string; // Default resource URL
   jwtIssuer: string;
   jwtAudience: string;
   jwtAccessTokenExpiresIn: string;
@@ -111,6 +112,7 @@ export interface OAuthSession {
   codeChallenge?: string;
   codeChallengeMethod?: string;
   oauthState?: string;
+  scope?: string;
   resource?: string;
   expiresAt: number;
 }

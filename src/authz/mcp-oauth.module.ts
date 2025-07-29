@@ -26,6 +26,7 @@ import { normalizeEndpoint } from '../mcp/utils/normalize-endpoint';
 // Default configuration values
 export const DEFAULT_OPTIONS: OAuthModuleDefaults = {
   serverUrl: 'https://localhost:3000',
+  resource: 'https://localhost:3000/mcp',
   jwtIssuer: 'https://localhost:3000',
   jwtAudience: 'mcp-client',
   jwtAccessTokenExpiresIn: '60s',

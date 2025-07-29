@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Inject,
+  Logger,
   Next,
   Post,
   Query,
@@ -43,6 +44,7 @@ export function createMcpOAuthController(
 ) {
   @Controller()
   class McpOAuthController {
+    readonly logger = new Logger(McpOAuthController.name);
     readonly serverUrl: string;
     readonly isProduction: boolean;
     readonly options: OAuthModuleOptions;
@@ -106,10 +108,8 @@ export function createMcpOAuthController(
         code_challenge,
         code_challenge_method,
         state,
-        resource,
       } = query;
-
-      // Validate parameters
+      const resource = this.options.resource;
       if (response_type !== 'code') {
         throw new BadRequestException('Only response_type=code is supported');
       }
@@ -144,6 +144,7 @@ export function createMcpOAuthController(
         codeChallenge: code_challenge,
         codeChallengeMethod: code_challenge_method || 'plain',
         oauthState: state,
+        scope: query.scope || '',
         resource,
         expiresAt: Date.now() + this.options.oauthSessionExpiresIn,
       };
@@ -183,7 +184,7 @@ export function createMcpOAuthController(
         async (err: any, user: any) => {
           try {
             if (err) {
-              console.error('OAuth callback error:', err);
+              this.logger.error('OAuth callback error:', err);
               throw new BadRequestException('Authentication failed');
             }
 
@@ -254,6 +255,8 @@ export function createMcpOAuthController(
         code_challenge: session.codeChallenge!,
         code_challenge_method: session.codeChallengeMethod!,
         expires_at: Date.now() + this.options.authCodeExpiresIn,
+        resource: session.resource,
+        scope: session.scope,
         github_access_token: '', // No longer provider-specific
       });
 
@@ -299,27 +302,36 @@ export function createMcpOAuthController(
     async handleAuthorizationCodeGrant(
       code: string,
       code_verifier: string,
-      redirect_uri: string,
+      _redirect_uri: string,
       client_id: string,
     ): Promise<TokenPair> {
-      // Validate the authorization code
+      this.logger.debug('handleAuthorizationCodeGrant - Params:', {
+        code,
+        client_id,
+      });
       const authCode = await this.store.getAuthCode(code);
       if (!authCode) {
+        this.logger.error(
+          'handleAuthorizationCodeGrant - Invalid authorization code:',
+          code,
+        );
         throw new BadRequestException('Invalid authorization code');
       }
-
-      // Check if code has expired
       if (authCode.expires_at < Date.now()) {
         await this.store.removeAuthCode(code);
+        this.logger.error(
+          'handleAuthorizationCodeGrant - Authorization code expired:',
+          code,
+        );
         throw new BadRequestException('Authorization code has expired');
       }
-
-      // Validate client_id matches
       if (authCode.client_id !== client_id) {
+        this.logger.error(
+          'handleAuthorizationCodeGrant - Client ID mismatch:',
+          { expected: authCode.client_id, got: client_id },
+        );
         throw new BadRequestException('Client ID mismatch');
       }
-
-      // Validate PKCE if required
       if (authCode.code_challenge) {
         const isValid = this.validatePKCE(
           code_verifier,
@@ -327,20 +339,31 @@ export function createMcpOAuthController(
           authCode.code_challenge_method,
         );
         if (!isValid) {
+          this.logger.error(
+            'handleAuthorizationCodeGrant - Invalid PKCE verification',
+          );
           throw new BadRequestException('Invalid PKCE verification');
         }
       }
-
-      // Generate tokens
+      if (!authCode.resource) {
+        this.logger.error(
+          'handleAuthorizationCodeGrant - No resource associated with code',
+        );
+        throw new BadRequestException(
+          'Authorization code is not associated with a resource',
+        );
+      }
       const tokens = this.jwtTokenService.generateTokenPair(
         authCode.user_id,
         client_id,
-        'mcp:access',
+        authCode.scope,
+        authCode.resource,
       );
-
-      // Remove the used authorization code
       await this.store.removeAuthCode(code);
-
+      this.logger.log(
+        'handleAuthorizationCodeGrant - Token pair generated for user:',
+        authCode.user_id,
+      );
       return tokens;
     }
 

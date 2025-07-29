@@ -1,12 +1,13 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { JwtService as NestJwtService } from '@nestjs/jwt';
+import { Inject, Injectable } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import * as jwt from 'jsonwebtoken';
 import { OAuthModuleOptions } from '../providers/oauth-provider.interface';
 
 export interface JwtPayload {
   sub: string; // user_id
   client_id?: string;
   scope?: string;
+  resource?: string; // MCP server resource identifier
   type: 'access' | 'refresh' | 'user';
   user_data?: any;
   iat?: number;
@@ -18,110 +19,115 @@ export interface TokenPair {
   refresh_token: string;
   token_type: string;
   expires_in: number;
-  scope: string;
+  scope?: string;
 }
 
 @Injectable()
 export class JwtTokenService {
-  constructor(
-    private readonly jwtService: NestJwtService,
-    @Inject('OAUTH_MODULE_OPTIONS') private options: OAuthModuleOptions,
-  ) {}
+  private jwtSecret: string;
 
-  generateTokenPair(userId: string, clientId: string, scope = ''): TokenPair {
+  constructor(@Inject('OAUTH_MODULE_OPTIONS') options: OAuthModuleOptions) {
+    // Use JWT secret from environment variable
+    const jwtSecret = options.jwtSecret;
+
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET must be set in environment variables.');
+    }
+
+    this.jwtSecret = jwtSecret;
+  }
+
+  generateTokenPair(
+    userId: string,
+    clientId: string,
+    scope = '',
+    resource?: string,
+  ): TokenPair {
     const jti = randomBytes(16).toString('hex'); // JWT ID for tracking
+    const serverUrl = process.env.SERVER_URL || 'https://localhost:3000';
 
-    const accessToken = this.jwtService.sign(
-      {
-        sub: userId,
-        client_id: clientId,
-        scope,
-        type: 'access',
-        jti: `access_${jti}`,
-      } as JwtPayload,
-      {
-        expiresIn: this.options.jwtAccessTokenExpiresIn,
-      },
-    );
+    const accessTokenPayload = {
+      sub: userId,
+      client_id: clientId,
+      scope,
+      resource,
+      type: 'access' as const,
+      jti: `access_${jti}`,
+      iss: serverUrl,
+      aud: resource,
+    };
 
-    const refreshToken = this.jwtService.sign(
-      {
-        sub: userId,
-        client_id: clientId,
-        scope,
-        type: 'refresh',
-        jti: `refresh_${jti}`,
-      } as JwtPayload,
-      {
-        expiresIn: this.options.jwtRefreshTokenExpiresIn,
-      },
-    );
+    const refreshTokenPayload = {
+      sub: userId,
+      client_id: clientId,
+      scope,
+      resource,
+      type: 'refresh' as const,
+      jti: `refresh_${jti}`,
+      iss: serverUrl,
+      aud: resource,
+    };
+
+    const accessToken = jwt.sign(accessTokenPayload, this.jwtSecret, {
+      algorithm: 'HS256',
+      expiresIn: '1h',
+    });
+
+    const refreshToken = jwt.sign(refreshTokenPayload, this.jwtSecret, {
+      algorithm: 'HS256',
+      expiresIn: '30d',
+    });
 
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
-      token_type: 'Bearer',
-      expires_in: this.parseExpiresIn(this.options.jwtAccessTokenExpiresIn),
-      scope,
+      token_type: 'bearer',
+      expires_in: 3600, // 1 hour
+      ...(scope && { scope }),
     };
   }
 
   validateToken(token: string): JwtPayload | null {
     try {
-      return this.jwtService.verify<JwtPayload>(token);
+      return jwt.verify(token, this.jwtSecret, {
+        algorithms: ['HS256'],
+      }) as JwtPayload;
     } catch {
       return null;
     }
   }
 
   refreshAccessToken(refreshToken: string): TokenPair | null {
-    try {
-      const payload = this.jwtService.verify(refreshToken) as JwtPayload;
+    const payload = this.validateToken(refreshToken);
 
-      if (payload.type !== 'refresh') {
-        return null;
-      }
-
-      return this.generateTokenPair(
-        payload.sub,
-        payload.client_id!,
-        payload.scope,
-      );
-    } catch (error) {
+    if (!payload || payload.type !== 'refresh') {
       return null;
     }
-  }
 
-  generateUserToken(userId: string, userData: any): string {
-    return this.jwtService.sign(
-      {
-        sub: userId,
-        type: 'user',
-        user_data: userData,
-      } as JwtPayload,
-      {
-        expiresIn: `${Math.floor(this.options.cookieMaxAge / 1000)}s`,
-      },
+    return this.generateTokenPair(
+      payload.sub,
+      payload.client_id!,
+      payload.scope,
+      payload.resource,
     );
   }
 
-  private parseExpiresIn(expiresIn: string): number {
-    // Handle formats like "60s", "30d", "24h", "1440m"
-    const match = expiresIn.match(/^(\d+)([smhd]?)$/);
-    if (!match) {
-      throw new Error(`Invalid expiresIn format: ${expiresIn}`);
-    }
+  generateUserToken(userId: string, userData: any): string {
+    const jti = randomBytes(16).toString('hex');
+    const serverUrl = process.env.SERVER_URL || 'https://localhost:3000';
 
-    const value = parseInt(match[1], 10);
-    const unit = match[2] || 's'; // default to seconds
-
-    const multipliers = {
-      s: 1,
-      m: 60,
-      h: 60 * 60,
-      d: 24 * 60 * 60,
+    const payload = {
+      sub: userId,
+      type: 'user',
+      user_data: userData,
+      jti: `user_${jti}`,
+      iss: serverUrl,
+      aud: 'mcp-client',
     };
 
-    return value * multipliers[unit as keyof typeof multipliers];
+    return jwt.sign(payload, this.jwtSecret, {
+      algorithm: 'HS256',
+      expiresIn: '24h',
+    });
   }
 }

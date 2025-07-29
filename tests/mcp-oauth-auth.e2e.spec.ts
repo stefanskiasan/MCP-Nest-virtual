@@ -323,6 +323,8 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         expires_at: Date.now() + 600000, // 10 minutes
+        resource: `${testServerUrl}/mcp`,
+        scope: '',
         github_access_token: 'mock-token',
       });
     });
@@ -344,7 +346,7 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
       expect(response.body).toMatchObject({
         access_token: expect.any(String),
         refresh_token: expect.any(String),
-        token_type: 'Bearer',
+        token_type: 'bearer',
         expires_in: expect.any(Number),
       });
 
@@ -417,6 +419,8 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         expires_at: Date.now() + 600000,
+        resource: `${testServerUrl}/mcp`,
+        scope: '',
         github_access_token: 'mock-token',
       });
 
@@ -442,7 +446,7 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
       expect(response.body).toMatchObject({
         valid: true,
         user_id: 'testuser',
-        scope: 'mcp:access',
+        scope: '',
       });
     });
 
@@ -490,6 +494,8 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         expires_at: Date.now() + 600000,
+        resource: `${testServerUrl}/mcp`,
+        scope: '',
         github_access_token: 'mock-token',
       });
 
@@ -586,6 +592,8 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         expires_at: Date.now() + 600000,
+        resource: `${testServerUrl}/mcp`,
+        scope: '',
         github_access_token: 'mock-token',
       });
 
@@ -614,7 +622,7 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
       expect(response.body).toMatchObject({
         access_token: expect.any(String),
         refresh_token: expect.any(String),
-        token_type: 'Bearer',
+        token_type: 'bearer',
         expires_in: expect.any(Number),
       });
     });
