@@ -1,7 +1,3 @@
-# nest-mcp Documentation Index
-
-Welcome to the documentation for the `@rekog/mcp-nest` project! This index provides quick links to all major README and documentation files in this repository.
-
 ## Documentation
 
 - [Prompts Guide](./prompts.md) — How to define and use prompts.
