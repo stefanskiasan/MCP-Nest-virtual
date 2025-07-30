@@ -33,7 +33,7 @@ With `@rekog/mcp-nest` you define tools, resources, and prompts in a way that's 
 ## Installation
 
 ```bash
-npm install @rekog/mcp-nest @modelcontextprotocol/sdk zod
+npm install @rekog/mcp-nest @modelcontextprotocol/sdk zod@^3
 ```
 
 ## Quick Start
