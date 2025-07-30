@@ -48,14 +48,15 @@ export class JwtTokenService {
 
     const accessTokenPayload = {
       sub: userId,
-      client_id: clientId,
-      scope,
-      resource,
-      type: 'access' as const,
-      jti: `access_${jti}`,
+      azp: clientId,
+      gty: 'client_credentials',
       iss: serverUrl,
       aud: resource,
     };
+
+    if (scope) {
+      accessTokenPayload['scope'] = scope;
+    }
 
     const refreshTokenPayload = {
       sub: userId,
@@ -83,7 +84,6 @@ export class JwtTokenService {
       refresh_token: refreshToken,
       token_type: 'bearer',
       expires_in: 3600, // 1 hour
-      ...(scope && { scope }),
     };
   }
 

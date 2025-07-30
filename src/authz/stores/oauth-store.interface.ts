@@ -2,6 +2,7 @@ import { OAuthSession } from '../providers/oauth-provider.interface';
 
 export interface OAuthClient {
   client_id: string;
+  client_secret?: string;
   client_name: string;
   client_description?: string;
   logo_uri?: string;

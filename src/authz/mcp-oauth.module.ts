@@ -37,7 +37,8 @@ export const DEFAULT_OPTIONS: OAuthModuleDefaults = {
   nodeEnv: 'development',
   apiPrefix: '',
   endpoints: {
-    wellKnown: '/.well-known/oauth-authorization-server',
+    wellKnownAuthorizationServerMetadata:
+      '/.well-known/oauth-authorization-server',
     register: '/register',
     authorize: '/authorize',
     callback: '/callback',
@@ -258,7 +259,8 @@ function prepareEndpoints(
   configuredEndpoints: OAuthEndpointConfiguration,
 ) {
   const updatedDefaultEndpoints = {
-    wellKnown: defaultEndpoints.wellKnown,
+    wellKnownAuthorizationServerMetadata:
+      defaultEndpoints.wellKnownAuthorizationServerMetadata,
     callback: normalizeEndpoint(`/${apiPrefix}/${defaultEndpoints.callback}`),
     token: normalizeEndpoint(`/${apiPrefix}/${defaultEndpoints.token}`),
     validate: normalizeEndpoint(`/${apiPrefix}/${defaultEndpoints.validate}`),

@@ -27,6 +27,9 @@ export class AuthorizationCodeEntity {
   resource: string;
 
   @Column({ nullable: true })
+  scope?: string;
+
+  @Column({ nullable: true })
   used_at?: Date;
 
   @Column()

@@ -4,6 +4,7 @@ import {
   IOAuthStore,
   OAuthClient,
 } from '../stores/oauth-store.interface';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class ClientService {
@@ -26,11 +27,27 @@ export class ClientService {
       );
     }
 
+    // Validate token_endpoint_auth_method if provided
+    const supportedAuthMethods = [
+      'client_secret_basic',
+      'client_secret_post',
+      'none',
+    ];
+    if (
+      registrationDto.token_endpoint_auth_method &&
+      !supportedAuthMethods.includes(registrationDto.token_endpoint_auth_method)
+    ) {
+      throw new BadRequestException(
+        `Unsupported token_endpoint_auth_method. Supported methods: ${supportedAuthMethods.join(', ')}`,
+      );
+    }
+
     // Default values for new clients
     const defaultClientValues = {
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
-      token_endpoint_auth_method: 'none',
+      token_endpoint_auth_method:
+        registrationDto.token_endpoint_auth_method || 'none',
     };
 
     // Check if client with same name already exists
@@ -64,10 +81,17 @@ export class ClientService {
     const client_id = this.store.generateClientId(
       registrationDto as OAuthClient,
     );
+
+    // Only generate client_secret for methods that require it
+    const authMethod = registrationDto.token_endpoint_auth_method || 'none';
+    const client_secret =
+      authMethod !== 'none' ? randomBytes(32).toString('hex') : undefined;
+
     const newClient: OAuthClient = {
       ...defaultClientValues,
       ...registrationDto,
       client_id,
+      client_secret,
       created_at: now,
       updated_at: now,
     };

@@ -25,7 +25,7 @@ export class McpAuthJwtGuard implements CanActivate {
 
     const payload = this.jwtTokenService.validateToken(token);
 
-    if (!payload || payload.type !== 'access') {
+    if (!payload) {
       throw new UnauthorizedException('Invalid or expired access token');
     }
 

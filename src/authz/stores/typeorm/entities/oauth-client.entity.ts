@@ -11,6 +11,9 @@ export class OAuthClientEntity {
   @PrimaryColumn()
   client_id: string;
 
+  @Column({ nullable: true })
+  client_secret?: string;
+
   @Column()
   client_name: string;
 

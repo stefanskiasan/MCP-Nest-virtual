@@ -60,7 +60,7 @@ export function createMcpOAuthController(
     }
 
     // OAuth endpoints
-    @Get(endpoints.wellKnown)
+    @Get(endpoints.wellKnownAuthorizationServerMetadata)
     getAuthorizationServerMetadata() {
       return {
         issuer: this.serverUrl,
@@ -81,6 +81,7 @@ export function createMcpOAuthController(
           'client_secret_post',
           'none',
         ],
+        scopes_supported: ['offline_access'],
         revocation_endpoint: normalizeEndpoint(
           `${this.serverUrl}/${endpoints?.revoke}`,
         ),
@@ -89,7 +90,7 @@ export function createMcpOAuthController(
     }
 
     @Post(endpoints.register)
-    async registerClient(@Body() registrationDto: ClientRegistrationDto) {
+    async registerClient(@Body() registrationDto: any) {
       return await this.clientService.registerClient(registrationDto);
     }
 
@@ -108,6 +109,7 @@ export function createMcpOAuthController(
         code_challenge,
         code_challenge_method,
         state,
+        scope,
       } = query;
       const resource = this.options.resource;
       if (response_type !== 'code') {
@@ -144,7 +146,7 @@ export function createMcpOAuthController(
         codeChallenge: code_challenge,
         codeChallengeMethod: code_challenge_method || 'plain',
         oauthState: state,
-        scope: query.scope || '',
+        scope: scope,
         resource,
         expiresAt: Date.now() + this.options.oauthSessionExpiresIn,
       };
@@ -275,27 +277,106 @@ export function createMcpOAuthController(
 
     // Token endpoints (remain the same)
     @Post(endpoints.token)
-    async exchangeToken(@Body() body: any): Promise<TokenPair> {
+    async exchangeToken(
+      @Body() body: any,
+      @Req() req: any,
+    ): Promise<TokenPair> {
       const {
         grant_type,
         code,
         code_verifier,
         redirect_uri,
         client_id,
+        client_secret,
         refresh_token,
       } = body;
+
+      // Extract client credentials based on authentication method
+      const clientCredentials = this.extractClientCredentials(req, body);
 
       if (grant_type === 'authorization_code') {
         return this.handleAuthorizationCodeGrant(
           code,
           code_verifier,
           redirect_uri,
-          client_id,
+          clientCredentials,
         );
       } else if (grant_type === 'refresh_token') {
-        return this.handleRefreshTokenGrant(refresh_token);
+        return this.handleRefreshTokenGrant(refresh_token, clientCredentials);
       } else {
         throw new BadRequestException('Unsupported grant_type');
+      }
+    }
+
+    /**
+     * Extract client credentials from request based on authentication method
+     */
+    extractClientCredentials(
+      req: any,
+      body: any,
+    ): { client_id: string; client_secret?: string } {
+      // Try client_secret_basic first (Authorization header)
+      const authHeader = req.headers?.authorization;
+      if (authHeader && authHeader.startsWith('Basic ')) {
+        const credentials = Buffer.from(authHeader.slice(6), 'base64').toString(
+          'utf-8',
+        );
+        const [client_id, client_secret] = credentials.split(':', 2);
+        if (client_id) {
+          return { client_id, client_secret };
+        }
+      }
+
+      // Try client_secret_post (body parameters)
+      if (body.client_id) {
+        return {
+          client_id: body.client_id,
+          client_secret: body.client_secret,
+        };
+      }
+
+      throw new BadRequestException('Missing client credentials');
+    }
+
+    /**
+     * Validate client authentication based on the client's configured method
+     */
+    validateClientAuthentication(
+      client: any,
+      clientCredentials: { client_id: string; client_secret?: string },
+    ): void {
+      if (!client) {
+        throw new BadRequestException('Invalid client_id');
+      }
+
+      const { token_endpoint_auth_method } = client;
+
+      switch (token_endpoint_auth_method) {
+        case 'client_secret_basic':
+        case 'client_secret_post':
+          if (!clientCredentials.client_secret) {
+            throw new BadRequestException(
+              'Client secret required for this authentication method',
+            );
+          }
+          if (client.client_secret !== clientCredentials.client_secret) {
+            throw new BadRequestException('Invalid client credentials');
+          }
+          break;
+
+        case 'none':
+          // Public client - no secret required
+          if (clientCredentials.client_secret) {
+            throw new BadRequestException(
+              'Client secret not allowed for public clients',
+            );
+          }
+          break;
+
+        default:
+          throw new BadRequestException(
+            `Unsupported authentication method: ${token_endpoint_auth_method}`,
+          );
       }
     }
 
@@ -303,12 +384,14 @@ export function createMcpOAuthController(
       code: string,
       code_verifier: string,
       _redirect_uri: string,
-      client_id: string,
+      clientCredentials: { client_id: string; client_secret?: string },
     ): Promise<TokenPair> {
       this.logger.debug('handleAuthorizationCodeGrant - Params:', {
         code,
-        client_id,
+        client_id: clientCredentials.client_id,
       });
+
+      // Get and validate the authorization code
       const authCode = await this.store.getAuthCode(code);
       if (!authCode) {
         this.logger.error(
@@ -325,13 +408,19 @@ export function createMcpOAuthController(
         );
         throw new BadRequestException('Authorization code has expired');
       }
-      if (authCode.client_id !== client_id) {
+      if (authCode.client_id !== clientCredentials.client_id) {
         this.logger.error(
           'handleAuthorizationCodeGrant - Client ID mismatch:',
-          { expected: authCode.client_id, got: client_id },
+          { expected: authCode.client_id, got: clientCredentials.client_id },
         );
         throw new BadRequestException('Client ID mismatch');
       }
+
+      // Get client and validate authentication
+      const client = await this.clientService.getClient(
+        clientCredentials.client_id,
+      );
+      this.validateClientAuthentication(client, clientCredentials);
       if (authCode.code_challenge) {
         const isValid = this.validatePKCE(
           code_verifier,
@@ -353,9 +442,10 @@ export function createMcpOAuthController(
           'Authorization code is not associated with a resource',
         );
       }
+
       const tokens = this.jwtTokenService.generateTokenPair(
         authCode.user_id,
-        client_id,
+        clientCredentials.client_id,
         authCode.scope,
         authCode.resource,
       );
@@ -367,7 +457,28 @@ export function createMcpOAuthController(
       return tokens;
     }
 
-    handleRefreshTokenGrant(refresh_token: string): TokenPair {
+    async handleRefreshTokenGrant(
+      refresh_token: string,
+      clientCredentials: { client_id: string; client_secret?: string },
+    ): Promise<TokenPair> {
+      // Get client and validate authentication
+      const client = await this.clientService.getClient(
+        clientCredentials.client_id,
+      );
+      this.validateClientAuthentication(client, clientCredentials);
+
+      // Verify the refresh token belongs to the authenticated client
+      const payload = this.jwtTokenService.validateToken(refresh_token);
+      if (!payload || payload.client_id !== clientCredentials.client_id) {
+        throw new BadRequestException(
+          'Invalid refresh token or token does not belong to this client',
+        );
+      }
+
+      // For refresh tokens, we don't have easy access to user profile
+      // In a production system, you might want to store user profiles separately
+      // For now, we'll generate new tokens with basic scope claims
+
       const newTokens = this.jwtTokenService.refreshAccessToken(refresh_token);
       if (!newTokens) {
         throw new BadRequestException('Failed to refresh token');

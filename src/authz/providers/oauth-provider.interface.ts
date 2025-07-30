@@ -32,7 +32,7 @@ export type StoreConfiguration =
   | undefined; // Default to memory store
 
 export interface OAuthEndpointConfiguration {
-  wellKnown?: string; // Default: '/.well-known/oauth-authorization-server'
+  wellKnownAuthorizationServerMetadata?: string; // Default: '/.well-known/oauth-authorization-server'
   register?: string; // Default: '/register'
   authorize?: string; // Default: '/authorize'
   callback?: string; // Default: '/callback'
