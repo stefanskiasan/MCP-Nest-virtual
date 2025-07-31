@@ -446,8 +446,10 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
       expect(response.body).toMatchObject({
         valid: true,
         user_id: 'testuser',
-        scope: '',
       });
+
+      // Scope should not be present when empty
+      expect(response.body.scope).toBeUndefined();
     });
 
     it('should reject request without token', async () => {

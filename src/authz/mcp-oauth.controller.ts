@@ -291,10 +291,9 @@ export function createMcpOAuthController(
         refresh_token,
       } = body;
 
-      // Extract client credentials based on authentication method
-      const clientCredentials = this.extractClientCredentials(req, body);
-
       if (grant_type === 'authorization_code') {
+        // Extract client credentials based on authentication method
+        const clientCredentials = this.extractClientCredentials(req, body);
         return this.handleAuthorizationCodeGrant(
           code,
           code_verifier,
@@ -302,6 +301,14 @@ export function createMcpOAuthController(
           clientCredentials,
         );
       } else if (grant_type === 'refresh_token') {
+        // For refresh tokens, try to extract client credentials, but allow fallback to token-based extraction
+        let clientCredentials: { client_id: string; client_secret?: string };
+        try {
+          clientCredentials = this.extractClientCredentials(req, body);
+        } catch {
+          // If we can't extract credentials, we'll try to get them from the refresh token
+          clientCredentials = { client_id: '' }; // Will be filled from token
+        }
         return this.handleRefreshTokenGrant(refresh_token, clientCredentials);
       } else {
         throw new BadRequestException('Unsupported grant_type');
@@ -461,23 +468,36 @@ export function createMcpOAuthController(
       refresh_token: string,
       clientCredentials: { client_id: string; client_secret?: string },
     ): Promise<TokenPair> {
-      // Get client and validate authentication
-      const client = await this.clientService.getClient(
-        clientCredentials.client_id,
-      );
-      this.validateClientAuthentication(client, clientCredentials);
-
-      // Verify the refresh token belongs to the authenticated client
+      // Verify the refresh token first to get client_id from token if not provided
       const payload = this.jwtTokenService.validateToken(refresh_token);
-      if (!payload || payload.client_id !== clientCredentials.client_id) {
+      if (!payload || payload.type !== 'refresh') {
+        throw new BadRequestException('Invalid or expired refresh token');
+      }
+
+      // Use client_id from token if not provided in credentials
+      const clientId = clientCredentials.client_id || payload.client_id;
+      if (!clientId) {
+        throw new BadRequestException('Unable to determine client_id');
+      }
+
+      // Get client and validate authentication
+      const client = await this.clientService.getClient(clientId);
+
+      // For refresh token grants, we can be more lenient with client authentication
+      // if the token already contains the client_id and the client is public
+      if (client?.token_endpoint_auth_method !== 'none') {
+        this.validateClientAuthentication(client, {
+          ...clientCredentials,
+          client_id: clientId,
+        });
+      }
+
+      // Verify the refresh token belongs to the client
+      if (payload.client_id !== clientId) {
         throw new BadRequestException(
           'Invalid refresh token or token does not belong to this client',
         );
       }
-
-      // For refresh tokens, we don't have easy access to user profile
-      // In a production system, you might want to store user profiles separately
-      // For now, we'll generate new tokens with basic scope claims
 
       const newTokens = this.jwtTokenService.refreshAccessToken(refresh_token);
       if (!newTokens) {
@@ -490,13 +510,19 @@ export function createMcpOAuthController(
     @Get(endpoints.validate)
     @UseGuards(McpAuthJwtGuard)
     validateToken(@Req() req: AuthenticatedRequest) {
-      return {
+      const response: any = {
         valid: true,
         user_id: req.user.sub,
-        client_id: req.user.client_id,
-        scope: req.user.scope,
+        client_id: req.user.azp || req.user.client_id, // Support both azp and client_id for backward compatibility
         expires_at: req.user.exp! * 1000,
       };
+
+      // Only include scope if it exists in the token
+      if (req.user.scope) {
+        response.scope = req.user.scope;
+      }
+
+      return response;
     }
 
     validatePKCE(

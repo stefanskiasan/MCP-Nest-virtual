@@ -5,7 +5,8 @@ import { OAuthModuleOptions } from '../providers/oauth-provider.interface';
 
 export interface JwtPayload {
   sub: string; // user_id
-  client_id?: string;
+  azp?: string; // authorized party (client_id for access tokens)
+  client_id?: string; // only for refresh tokens
   scope?: string;
   resource?: string; // MCP server resource identifier
   type: 'access' | 'refresh' | 'user';
@@ -43,19 +44,26 @@ export class JwtTokenService {
     scope = '',
     resource?: string,
   ): TokenPair {
+    if (!resource) {
+      throw new Error('Resource is required for token generation');
+    }
+
     const jti = randomBytes(16).toString('hex'); // JWT ID for tracking
     const serverUrl = process.env.SERVER_URL || 'https://localhost:3000';
 
-    const accessTokenPayload = {
+    const accessTokenPayload: any = {
       sub: userId,
-      azp: clientId,
+      azp: clientId, // Use azp instead of client_id
       gty: 'client_credentials',
       iss: serverUrl,
       aud: resource,
+      resource: resource, // Always include resource
+      type: 'access' as const,
     };
 
-    if (scope) {
-      accessTokenPayload['scope'] = scope;
+    // Only include scope if it's not empty
+    if (scope && scope.trim() !== '') {
+      accessTokenPayload.scope = scope;
     }
 
     const refreshTokenPayload = {
