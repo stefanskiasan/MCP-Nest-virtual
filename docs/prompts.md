@@ -209,7 +209,7 @@ getTaskPlannerPrompt({ task, complexity }) {
 Run the playground server:
 
 ```bash
-ts-node-dev --respawn playground/servers/server-stateful.ts
+npx ts-node-dev --respawn playground/servers/server-stateful.ts
 ```
 
 ### 2. List Available Prompts

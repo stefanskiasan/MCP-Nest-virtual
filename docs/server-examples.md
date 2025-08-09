@@ -49,7 +49,7 @@ void bootstrap();
 **Run:**
 
 ```bash
-ts-node-dev --respawn playground/servers/server-stateful.ts
+npx ts-node-dev --respawn playground/servers/server-stateful.ts
 ```
 
 **Test:**
@@ -90,7 +90,7 @@ class AppModule {}
 **Run:**
 
 ```bash
-ts-node-dev --respawn playground/servers/server-stateless.ts
+npx ts-node-dev --respawn playground/servers/server-stateless.ts
 ```
 
 ## STDIO Server
@@ -125,7 +125,7 @@ void bootstrap();
 **Run:**
 
 ```bash
-ts-node-dev --respawn playground/servers/stdio.ts
+npx ts-node-dev --respawn playground/servers/stdio.ts
 ```
 
 **Test with MCP Client:**
@@ -237,7 +237,7 @@ async function bootstrap() {
 **Run:**
 
 ```bash
-ts-node-dev --respawn playground/servers/server-stateful-fastify.ts
+npx ts-node-dev --respawn playground/servers/server-stateful-fastify.ts
 ```
 
 ## Global Prefix Integration

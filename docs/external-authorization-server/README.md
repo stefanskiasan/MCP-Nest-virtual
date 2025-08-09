@@ -47,7 +47,7 @@ done
 ./openmcpauthproxy --debug
 
 # Start your MCP server (in another terminal from the root)
-ts-node-dev --respawn playground/servers/server-stateful.ts
+npx ts-node-dev --respawn playground/servers/server-stateful.ts
 ```
 
 **Step 3: Test it**
@@ -59,7 +59,7 @@ Time to see the authentication in action! You have two options:
 npx @modelcontextprotocol/inspector@0.14.3
 
 # Option 2: Run MCP client (in another terminal from the root)
-ts-node-dev --respawn playground/clients/http-sse-oauth-client.ts
+npx ts-node-dev --respawn playground/clients/http-sse-oauth-client.ts
 ```
 
 Either option will walk you through the OAuth flow in your browser. The MCP client in the terminal then will let you run commands as follows:
