@@ -41,6 +41,11 @@ export interface OAuthEndpointConfiguration {
   revoke?: string; // Default: '/revoke'
 }
 
+export interface OAuthEndpointDisableOptions {
+  wellKnownAuthorizationServerMetadata?: boolean;
+  wellKnownProtectedResourceMetadata?: boolean;
+}
+
 export interface OAuthUserModuleOptions {
   provider: OAuthProviderConfig;
 
@@ -91,6 +96,7 @@ export interface OAuthUserModuleOptions {
 
   // Endpoint Configuration
   endpoints?: OAuthEndpointConfiguration;
+  disableEndpoints?: OAuthEndpointDisableOptions;
 }
 
 export interface OAuthModuleDefaults {
@@ -106,6 +112,7 @@ export interface OAuthModuleDefaults {
   nodeEnv: string;
   apiPrefix: string;
   endpoints: OAuthEndpointConfiguration;
+  disableEndpoints: OAuthEndpointDisableOptions;
   protectedResourceMetadata: {
     scopesSupported: string[];
     bearerMethodsSupported: string[];

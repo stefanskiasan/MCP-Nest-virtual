@@ -188,6 +188,31 @@ import { AuthGuard } from './auth.guard';
   providers: [GreetingTool, AuthGuard],
 })
 class AppModule {}
+### Disabling OAuth Discovery Endpoints
+
+If you want to define the endpoints yourself, then you can disable the default discovery endpoints:
+
+```typescript
+@Module({
+  imports: [
+    McpAuthModule.forRoot({
+      // ... required options
+      disableEndpoints: {
+        wellKnownAuthorizationServerMetadata: true,
+        wellKnownProtectedResourceMetadata: false,
+      },
+    }),
+    McpModule.forRoot({
+      name: 'secure-mcp-server',
+      version: '0.0.1',
+      guards: [McpAuthJwtGuard],
+    }),
+  ],
+  providers: [GreetingTool, McpAuthJwtGuard],
+})
+class AppModule {}
+```
+
 ```
 
 ## Custom Endpoints

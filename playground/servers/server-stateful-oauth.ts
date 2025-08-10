@@ -32,6 +32,10 @@ dotenv.config();
           '/.well-known/oauth-protected-resource',
         ],
       },
+      disableEndpoints: {
+        wellKnownAuthorizationServerMetadata: true,
+        wellKnownProtectedResourceMetadata: true,
+      },
       // Storage Configuration - choose one of the following options:
 
       // Option 1: Use in-memory store (default if not specified)

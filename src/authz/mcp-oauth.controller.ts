@@ -36,15 +36,48 @@ interface OAuthCallbackRequest extends ExpressRequest {
   };
 }
 
+// Add this interface to properly type the Express request with raw body
+interface RequestWithRawBody extends ExpressRequest {
+  rawBody?: Buffer;
+  textBody?: string;
+}
+
 export function createMcpOAuthController(
   endpoints: OAuthEndpointConfiguration = {},
+  options?: {
+    disableWellKnownProtectedResourceMetadata?: boolean;
+    disableWellKnownAuthorizationServerMetadata?: boolean;
+  },
 ) {
+  // Optional decorator helpers
+  const OptionalGet = (
+    path: string | string[] | undefined,
+    enabled: boolean,
+  ): MethodDecorator => {
+    return enabled && path
+      ? (Get as unknown as (p?: any) => MethodDecorator)(path)
+      : ((() => {}) as unknown as MethodDecorator);
+  };
+  const OptionalHeader = (
+    name: string,
+    value: string,
+    enabled: boolean,
+  ): MethodDecorator => {
+    return enabled
+      ? (Header as unknown as (n: string, v: string) => MethodDecorator)(
+          name,
+          value,
+        )
+      : ((() => {}) as unknown as MethodDecorator);
+  };
+
   @Controller()
   class McpOAuthController {
     readonly logger = new Logger(McpOAuthController.name);
     readonly serverUrl: string;
     readonly isProduction: boolean;
     readonly options: OAuthModuleOptions;
+
     constructor(
       @Inject('OAUTH_MODULE_OPTIONS') options: OAuthModuleOptions,
       @Inject('IOAuthStore') readonly store: IOAuthStore,
@@ -56,8 +89,101 @@ export function createMcpOAuthController(
       this.options = options;
     }
 
-    @Get(endpoints.wellKnownProtectedResourceMetadata)
-    @Header('content-type', 'application/json')
+    /**
+     * Utility function to parse form-encoded or JSON bodies
+     * Handles both string (raw form data) and object bodies
+     */
+    parseRequestBody(body: any, req?: RequestWithRawBody): Record<string, any> {
+      // If body is already a parsed object with properties, return it
+      if (body && typeof body === 'object' && Object.keys(body).length > 0) {
+        return body;
+      }
+
+      // If body is a string (raw form data), parse it
+      if (typeof body === 'string' && body.length > 0) {
+        const params = new URLSearchParams(body);
+        const parsedBody: Record<string, any> = {};
+        for (const [key, value] of params.entries()) {
+          parsedBody[key] = value;
+        }
+        return parsedBody;
+      }
+
+      // Check if we have a text body stored on the request (from our middleware)
+      if (req?.textBody) {
+        const params = new URLSearchParams(req.textBody);
+        const parsedBody: Record<string, any> = {};
+        for (const [key, value] of params.entries()) {
+          parsedBody[key] = value;
+        }
+        return parsedBody;
+      }
+
+      // Check if we have a raw body buffer stored on the request
+      if (req?.rawBody) {
+        const bodyString = req.rawBody.toString('utf-8');
+        if (bodyString) {
+          const params = new URLSearchParams(bodyString);
+          const parsedBody: Record<string, any> = {};
+          for (const [key, value] of params.entries()) {
+            parsedBody[key] = value;
+          }
+          return parsedBody;
+        }
+      }
+
+      // Return empty object if no valid body
+      return {};
+    }
+
+    /**
+     * Middleware to capture raw body for form-encoded requests
+     * This is needed when bodyParser is disabled in the main app
+     */
+  captureRawBody(req: RequestWithRawBody, res: Response, next: NextFunction) {
+      if (
+        req.headers['content-type']?.includes(
+          'application/x-www-form-urlencoded',
+        )
+      ) {
+        let rawBody = '';
+
+        req.on('data', (chunk: Buffer) => {
+          rawBody += chunk.toString('utf-8');
+        });
+
+        req.on('end', () => {
+          req.textBody = rawBody;
+          // Also parse and set it as body for NestJS
+          if (rawBody) {
+            const params = new URLSearchParams(rawBody);
+            const parsedBody: any = {};
+            for (const [key, value] of params.entries()) {
+              parsedBody[key] = value;
+            }
+            (req as any).body = parsedBody;
+          }
+          next();
+        });
+
+        req.on('error', (err) => {
+          this.logger.error('Error reading request body:', err);
+          next(err);
+        });
+      } else {
+        next();
+      }
+    }
+
+    @OptionalGet(
+      endpoints.wellKnownProtectedResourceMetadata,
+      !options?.disableWellKnownProtectedResourceMetadata,
+    )
+    @OptionalHeader(
+      'content-type',
+      'application/json',
+      !options?.disableWellKnownProtectedResourceMetadata,
+    )
     getProtectedResourceMetadata() {
       // The issuer URL of your authorization server.
       const authorizationServerIssuer = this.options.jwtIssuer;
@@ -104,8 +230,15 @@ export function createMcpOAuthController(
     }
 
     // OAuth endpoints
-    @Get(endpoints.wellKnownAuthorizationServerMetadata)
-    @Header('content-type', 'application/json')
+    @OptionalGet(
+      endpoints.wellKnownAuthorizationServerMetadata,
+      !options?.disableWellKnownAuthorizationServerMetadata,
+    )
+    @OptionalHeader(
+      'content-type',
+      'application/json',
+      !options?.disableWellKnownAuthorizationServerMetadata,
+    )
     getAuthorizationServerMetadata() {
       return {
         issuer: this.serverUrl,
@@ -338,19 +471,85 @@ export function createMcpOAuthController(
     @HttpCode(200)
     async exchangeToken(
       @Body() body: any,
-      @Req() req: any,
+      @Req() req: RequestWithRawBody,
+      @Res({ passthrough: true }) res: Response,
+    ): Promise<TokenPair> {
+      // Apply middleware to capture raw body if needed
+      const isFormUrlEncoded = req.headers['content-type']?.includes(
+        'application/x-www-form-urlencoded',
+      );
+      const isBodyEmpty =
+        !body ||
+        (typeof body === 'object' &&
+          Object.keys(body as Record<string, unknown>).length === 0);
+
+      if (isFormUrlEncoded && isBodyEmpty) {
+        return new Promise((resolve, reject) => {
+          this.captureRawBody(req, res, (err?: any) => {
+            if (err) {
+              reject(
+                err instanceof Error ? err : new Error(String(err ?? 'error')),
+              );
+              return;
+            }
+
+            // Avoid returning a Promise from the callback; use an IIFE
+            void (async () => {
+              try {
+                // Re-parse the body after middleware has captured it
+                const parsedBody = this.parseRequestBody(req.body || body, req);
+                const result = await this.processTokenExchange(parsedBody, req);
+                resolve(result);
+              } catch (error) {
+                reject(
+                  error instanceof Error
+                    ? error
+                    : new Error(String(error ?? 'error')),
+                );
+              }
+            })();
+          });
+        });
+      }
+
+      // Body is already parsed, process directly
+      const parsedBody = this.parseRequestBody(body, req);
+      return this.processTokenExchange(parsedBody, req);
+    }
+
+    async processTokenExchange(
+      parsedBody: Record<string, any>,
+      req: RequestWithRawBody,
     ): Promise<TokenPair> {
       const { grant_type, code, code_verifier, redirect_uri, refresh_token } =
-        body;
+        parsedBody;
+
+      // Add debugging to help identify issues
+      if (!grant_type) {
+        this.logger.error('Missing grant_type in request body:', {
+          parsedBodyKeys: Object.keys(parsedBody),
+          contentType: req.headers['content-type'],
+          textBody: req.textBody,
+          parsedBody,
+        });
+        throw new BadRequestException('Missing grant_type parameter');
+      }
 
       switch (grant_type) {
         case 'authorization_code': {
           // Extract client credentials based on authentication method
-          const clientCredentials = this.extractClientCredentials(req, body);
+          const clientCredentials = this.extractClientCredentials(
+            req,
+            parsedBody,
+          );
           return await this.handleAuthorizationCodeGrant(
-            code,
-            code_verifier,
-            redirect_uri,
+            typeof code === 'string' ? code : String(code ?? ''),
+            typeof code_verifier === 'string'
+              ? code_verifier
+              : String(code_verifier ?? ''),
+            typeof redirect_uri === 'string'
+              ? redirect_uri
+              : String(redirect_uri ?? ''),
             clientCredentials,
           );
         }
@@ -358,18 +557,22 @@ export function createMcpOAuthController(
           // For refresh tokens, try to extract client credentials, but allow fallback to token-based extraction
           let clientCredentials: { client_id: string; client_secret?: string };
           try {
-            clientCredentials = this.extractClientCredentials(req, body);
+            clientCredentials = this.extractClientCredentials(req, parsedBody);
           } catch {
             // If we can't extract credentials, we'll try to get them from the refresh token
             clientCredentials = { client_id: '' }; // Will be filled from token
           }
           return await this.handleRefreshTokenGrant(
-            refresh_token,
+            typeof refresh_token === 'string'
+              ? refresh_token
+              : String(refresh_token ?? ''),
             clientCredentials,
           );
         }
         default:
-          throw new BadRequestException('Unsupported grant_type');
+          throw new BadRequestException(
+            `Unsupported grant_type: ${grant_type}`,
+          );
       }
     }
 
@@ -377,9 +580,12 @@ export function createMcpOAuthController(
      * Extract client credentials from request based on authentication method
      */
     extractClientCredentials(
-      req: any,
+      req: RequestWithRawBody,
       body: any,
     ): { client_id: string; client_secret?: string } {
+      // Parse the body using the shared utility function
+      const parsedBody = this.parseRequestBody(body, req);
+
       // Try client_secret_basic first (Authorization header)
       const authHeader = req.headers?.authorization;
       if (authHeader && authHeader.startsWith('Basic ')) {
@@ -393,10 +599,10 @@ export function createMcpOAuthController(
       }
 
       // Try client_secret_post (body parameters)
-      if (body.client_id) {
+      if (parsedBody.client_id) {
         return {
-          client_id: body.client_id,
-          client_secret: body.client_secret,
+          client_id: parsedBody.client_id,
+          client_secret: parsedBody.client_secret,
         };
       }
 
@@ -508,7 +714,7 @@ export function createMcpOAuthController(
         );
       }
 
-      let userData: any | undefined = undefined;
+  let userData: Record<string, unknown> | undefined = undefined;
       if (authCode.user_profile_id) {
         try {
           const profile = await this.store.getUserProfileById(
@@ -534,7 +740,7 @@ export function createMcpOAuthController(
         },
       );
       await this.store.removeAuthCode(code);
-      this.logger.log(
+      this.logger.debug(
         'handleAuthorizationCodeGrant - Token pair generated for user:',
         authCode.user_id,
       );
@@ -583,7 +789,7 @@ export function createMcpOAuthController(
           throw new BadRequestException('Invalid or expired refresh token');
         }
 
-        let userData: any | undefined = undefined;
+  let userData: Record<string, unknown> | undefined = undefined;
         if (payload.user_profile_id) {
           try {
             const profile = await this.store.getUserProfileById(

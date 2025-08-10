@@ -107,6 +107,7 @@ npm install --save-dev @types/cookie-parser
 | `oauthSessionExpiresIn` | `number` | `10 * 60 * 1000` | OAuth session timeout (10 minutes) |
 | `authCodeExpiresIn` | `number` | `10 * 60 * 1000` | Authorization code timeout (10 minutes) |
 | `endpoints` | `object` | See below | Custom endpoint paths |
+| `disableEndpoints` | `{ wellKnownAuthorizationServerMetadata?: boolean; wellKnownProtectedResourceMetadata?: boolean }` | `{ wellKnownAuthorizationServerMetadata: false, wellKnownProtectedResourceMetadata: false }` | Disable specific discovery endpoints without changing their paths |
 | `storeConfiguration` | [`IOAuthStore`](../src/authz/stores/oauth-store.interface.ts) | In-memory | Storage backend configuration |
 
 ### Endpoint Configuration
@@ -114,16 +115,32 @@ npm install --save-dev @types/cookie-parser
 ```typescript
 {
   endpoints: {
-    wellKnown: '/.well-known/oauth-authorization-server',
+    // RFC 8414 (Authorization Server Metadata)
+    wellKnownAuthorizationServerMetadata: '/.well-known/oauth-authorization-server',
+    // RFC 9728 (Protected Resource Metadata / MCP discovery)
+    wellKnownProtectedResourceMetadata: '/.well-known/oauth-protected-resource',
+    // OAuth 2.1 flow endpoints
     register: '/register',
     authorize: '/authorize',
-    auth: '/auth',
     callback: '/callback',
     token: '/token',
-    validate: '/validate',
     revoke: '/revoke',
   }
 }
+```
+
+### Disabling Discovery Endpoints
+
+You can keep endpoint paths configured while preventing route registration via `disableEndpoints`:
+
+```typescript
+McpAuthModule.forRoot({
+  // ... required options
+  disableEndpoints: {
+    wellKnownAuthorizationServerMetadata: true, // disables GET /.well-known/oauth-authorization-server
+    wellKnownProtectedResourceMetadata: false,  // keeps GET /.well-known/oauth-protected-resource
+  },
+});
 ```
 
 ## Storage Backends
@@ -246,7 +263,11 @@ When `apiPrefix` is set to `'auth'`, the following endpoints are available:
 
 ### Authorization Server Metadata
 
-- **GET** `/.well-known/oauth-authorization-server` - OAuth server metadata (RFC 8414)
+- **GET** `/.well-known/oauth-authorization-server` - OAuth server metadata (RFC 8414) [can be disabled]
+
+### Protected Resource Metadata
+
+- **GET** `/.well-known/oauth-protected-resource` - Protected Resource metadata (RFC 9728, used by MCP for discovery) [can be disabled]
 
 ### OAuth Flow Endpoints
 
@@ -254,7 +275,6 @@ When `apiPrefix` is set to `'auth'`, the following endpoints are available:
 - **GET** `/authorize` - Authorization endpoint
 - **GET** `/callback` - OAuth callback endpoint
 - **POST** `/token` - Token endpoint
-- **POST** `/validate` - Token validation
 - **POST** `/revoke` - Token revocation
 
 ## Environment Variables

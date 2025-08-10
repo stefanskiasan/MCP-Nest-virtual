@@ -47,6 +47,10 @@ export const DEFAULT_OPTIONS: OAuthModuleDefaults = {
     token: '/token',
     revoke: '/revoke',
   },
+  disableEndpoints: {
+    wellKnownAuthorizationServerMetadata: false,
+    wellKnownProtectedResourceMetadata: false,
+  },
   protectedResourceMetadata: {
     scopesSupported: ['offline_access'],
     bearerMethodsSupported: ['header'],
@@ -156,6 +160,14 @@ export class McpAuthModule {
     // Create controller with apiPrefix
     const OAuthControllerClass = createMcpOAuthController(
       resolvedOptions.endpoints,
+      {
+        disableWellKnownAuthorizationServerMetadata:
+          resolvedOptions.disableEndpoints
+            .wellKnownAuthorizationServerMetadata ?? false,
+        disableWellKnownProtectedResourceMetadata:
+          resolvedOptions.disableEndpoints
+            .wellKnownProtectedResourceMetadata ?? false,
+      },
     );
 
     return {
@@ -198,6 +210,11 @@ export class McpAuthModule {
       authorizationServerMetadata: {
         ...defaults.authorizationServerMetadata,
         ...options.authorizationServerMetadata,
+      },
+      // Merge disableEndpoints with defaults
+      disableEndpoints: {
+        ...defaults.disableEndpoints,
+        ...(options.disableEndpoints || {}),
       },
     };
 
