@@ -1,12 +1,71 @@
 import type { Request } from 'express';
+import type { McpRequestWithUser } from '../../src';
 import { Injectable } from '@nestjs/common';
 import { Context, Tool } from '../../src';
 import { Progress } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
+const informalGreetings = {
+  en: 'Hey',
+  es: 'Qué tal',
+  fr: 'Salut',
+  de: 'Hi',
+  it: 'Ciao',
+  pt: 'Oi',
+  ja: 'やあ',
+  ko: '안녕',
+  zh: '嗨',
+};
+
+const languageNames = {
+  en: 'English',
+  es: 'Spanish',
+  fr: 'French',
+  de: 'German',
+  it: 'Italian',
+  pt: 'Portuguese',
+  ja: 'Japanese',
+  ko: 'Korean',
+  zh: 'Chinese',
+};
+
 @Injectable()
 export class GreetingTool {
   constructor() {}
+
+  @Tool({
+    name: 'greet-logged-in-user',
+    description:
+      'Greets the currently logged-in user using their name from the request',
+    annotations: {
+      title: 'Greet Logged-in User Tool',
+      destructiveHint: false,
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  })
+  async greetLoggedInUser(args, context: Context, request: McpRequestWithUser) {
+    // Try to extract user name from request (commonly request.user or request.session.user)
+    let name;
+    if (request.user && typeof request.user === 'object') {
+      name =
+        request.user.displayName || request.user.username || request.user.name;
+    }
+
+    if (!name) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Error: No logged-in user found in the request.',
+          },
+        ],
+      };
+    }
+
+    return `Hello, ${name}!`;
+  }
 
   @Tool({
     name: 'greet-world',
@@ -40,18 +99,6 @@ export class GreetingTool {
     },
   })
   async sayHello({ name, language }, context: Context, request: Request) {
-    const informalGreetings = {
-      en: 'Hey',
-      es: 'Qué tal',
-      fr: 'Salut',
-      de: 'Hi',
-      it: 'Ciao',
-      pt: 'Oi',
-      ja: 'やあ',
-      ko: '안녕',
-      zh: '嗨',
-    };
-
     const greetingWord = informalGreetings[language] || informalGreetings['en'];
     const greeting = `${greetingWord}, ${name}!`;
 
@@ -125,18 +172,6 @@ export class GreetingTool {
           selectedLanguage = 'en';
       }
 
-      const informalGreetings = {
-        en: 'Hey',
-        es: 'Qué tal',
-        fr: 'Salut',
-        de: 'Hi',
-        it: 'Ciao',
-        pt: 'Oi',
-        ja: 'やあ',
-        ko: '안녕',
-        zh: '嗨',
-      };
-
       const greetingWord =
         informalGreetings[selectedLanguage] || informalGreetings['en'];
       const greeting = `${greetingWord}, ${name}!`;
@@ -195,42 +230,9 @@ export class GreetingTool {
       };
     }
 
-    const informalGreetings = {
-      en: 'Hey',
-      es: 'Qué tal',
-      fr: 'Salut',
-      de: 'Hi',
-      it: 'Ciao',
-      pt: 'Oi',
-      ja: 'やあ',
-      ko: '안녕',
-      zh: '嗨',
-    };
-
-    const languageNames = {
-      en: 'English',
-      es: 'Spanish',
-      fr: 'French',
-      de: 'German',
-      it: 'Italian',
-      pt: 'Portuguese',
-      ja: 'Japanese',
-      ko: 'Korean',
-      zh: 'Chinese',
-    };
-
     const greetingWord = informalGreetings[language] || informalGreetings['en'];
     const languageName = languageNames[language] || languageNames['en'];
     const greeting = `${greetingWord}, ${name}!`;
-
-    const totalSteps = 5;
-    for (let i = 0; i < totalSteps; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      await context.reportProgress({
-        progress: (i + 1) * 20,
-        total: 100,
-      } as Progress);
-    }
 
     const structuredContent = {
       greeting,

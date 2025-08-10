@@ -5,6 +5,7 @@
 .vscode
 node_modules
 playground
+docs
 tests
 coverage
 .eslintrc
@@ -14,3 +15,4 @@ jest.config.js
 .DS_Store
 *.tgz
 .gitignore
+*.db

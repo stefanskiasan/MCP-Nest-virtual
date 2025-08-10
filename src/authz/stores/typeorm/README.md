@@ -29,6 +29,13 @@ Stores OAuth session data including:
 - Expiration handling
 - Client association
 
+### OAuthUserProfileEntity
+Stores normalized user profile information per provider:
+- Stable `profile_id` primary key
+- `provider_user_id` and `provider`
+- `username`, `email`, `displayName`, `avatarUrl`
+- `raw` stringified provider payload
+
 ## Usage
 
 ### Basic SQLite Configuration

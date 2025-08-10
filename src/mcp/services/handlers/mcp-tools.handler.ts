@@ -12,6 +12,7 @@ import { McpRegistryService } from '../mcp-registry.service';
 import { McpHandlerBase } from './mcp-handler.base';
 import { ZodTypeAny } from 'zod';
 import { HttpRequest } from '../../interfaces/http-adapter.interface';
+import { McpRequestWithUser } from 'src/authz';
 
 @Injectable({ scope: Scope.REQUEST })
 export class McpToolsHandler extends McpHandlerBase {
@@ -152,7 +153,7 @@ export class McpToolsHandler extends McpHandlerBase {
             toolInstance,
             request.params.arguments,
             context,
-            httpRequest.raw,
+            httpRequest.raw as McpRequestWithUser,
           );
 
           const transformedResult = this.formatToolResult(

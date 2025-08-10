@@ -11,6 +11,7 @@ export interface JwtPayload {
   resource?: string; // MCP server resource identifier
   type: 'access' | 'refresh' | 'user';
   user_data?: any;
+  user_profile_id?: string;
   iat?: number;
   exp?: number;
 }
@@ -43,6 +44,7 @@ export class JwtTokenService {
     clientId: string,
     scope = '',
     resource?: string,
+    extras?: { user_profile_id?: string; user_data?: any },
   ): TokenPair {
     if (!resource) {
       throw new Error('Resource is required for token generation');
@@ -60,13 +62,19 @@ export class JwtTokenService {
       resource: resource, // Always include resource
       type: 'access' as const,
     };
+    if (extras?.user_profile_id) {
+      accessTokenPayload.user_profile_id = extras.user_profile_id;
+    }
+    if (extras?.user_data) {
+      accessTokenPayload.user_data = extras.user_data;
+    }
 
     // Only include scope if it's not empty
     if (scope && scope.trim() !== '') {
       accessTokenPayload.scope = scope;
     }
 
-    const refreshTokenPayload = {
+    const refreshTokenPayload: any = {
       sub: userId,
       client_id: clientId,
       scope,
@@ -76,6 +84,9 @@ export class JwtTokenService {
       iss: serverUrl,
       aud: resource,
     };
+    if (extras?.user_profile_id) {
+      refreshTokenPayload.user_profile_id = extras.user_profile_id;
+    }
 
     const accessToken = jwt.sign(accessTokenPayload, this.jwtSecret, {
       algorithm: 'HS256',
@@ -117,6 +128,10 @@ export class JwtTokenService {
       payload.client_id!,
       payload.scope,
       payload.resource,
+      {
+        user_profile_id: payload.user_profile_id,
+        user_data: payload.user_data,
+      },
     );
   }
 

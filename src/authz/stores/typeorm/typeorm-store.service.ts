@@ -1,13 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import {
   OAuthClientEntity,
   AuthorizationCodeEntity,
   OAuthSessionEntity,
+  OAuthUserProfileEntity,
 } from './entities';
-import { OAuthSession } from '../../providers/oauth-provider.interface';
+import {
+  OAuthSession,
+  OAuthUserProfile,
+} from '../../providers/oauth-provider.interface';
 import {
   AuthorizationCode,
   IOAuthStore,
@@ -23,6 +27,8 @@ export class TypeOrmStore implements IOAuthStore {
     private readonly authCodeRepository: Repository<AuthorizationCodeEntity>,
     @InjectRepository(OAuthSessionEntity)
     private readonly sessionRepository: Repository<OAuthSessionEntity>,
+    @InjectRepository(OAuthUserProfileEntity)
+    private readonly userProfileRepository: Repository<OAuthUserProfileEntity>,
   ) {}
 
   // Client management
@@ -94,5 +100,65 @@ export class TypeOrmStore implements IOAuthStore {
       .replace(/[^a-z0-9]/g, '');
     const salt = randomBytes(4).toString('hex');
     return `${normalizedName}_${salt}`;
+  }
+
+  // User profile management
+  async upsertUserProfile(
+    profile: OAuthUserProfile,
+    provider: string,
+  ): Promise<string> {
+    // Try find by provider+provider_user_id
+    const existing = await this.userProfileRepository.findOne({
+      where: { provider, provider_user_id: profile.id },
+    });
+    if (existing) {
+      // Update fields that may change
+      existing.username = profile.username;
+      existing.email = profile.email;
+      existing.displayName = profile.displayName;
+      existing.avatarUrl = profile.avatarUrl;
+      existing.raw = profile.raw ? JSON.stringify(profile.raw) : existing.raw;
+      await this.userProfileRepository.save(existing);
+      return existing.profile_id;
+    }
+    // Create new
+    const entity = this.userProfileRepository.create({
+      profile_id: this.generateProfileId(provider, profile.id),
+      provider_user_id: profile.id,
+      provider,
+      username: profile.username,
+      email: profile.email,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+      raw: profile.raw ? JSON.stringify(profile.raw) : undefined,
+    });
+    const saved = await this.userProfileRepository.save(entity);
+    return saved.profile_id;
+  }
+
+  async getUserProfileById(
+    profileId: string,
+  ): Promise<
+    (OAuthUserProfile & { profile_id: string; provider: string }) | undefined
+  > {
+    const entity = await this.userProfileRepository.findOne({
+      where: { profile_id: profileId },
+    });
+    if (!entity) return undefined;
+    return {
+      profile_id: entity.profile_id,
+      provider: entity.provider,
+      id: entity.provider_user_id,
+      username: entity.username,
+      email: entity.email,
+      displayName: entity.displayName,
+      avatarUrl: entity.avatarUrl,
+      raw: entity.raw ? JSON.parse(entity.raw) : undefined,
+    };
+  }
+
+  private generateProfileId(provider: string, providerUserId: string): string {
+    const input = `${provider}:${providerUserId}`;
+    return createHash('sha256').update(input).digest('hex').slice(0, 24);
   }
 }

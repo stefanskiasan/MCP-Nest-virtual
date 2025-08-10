@@ -19,6 +19,7 @@ import {
   AuthorizationCodeEntity,
   OAuthClientEntity,
   OAuthSessionEntity,
+  OAuthUserProfileEntity,
 } from './stores/typeorm/entities';
 import { TypeOrmStore } from './stores/typeorm/typeorm-store.service';
 import { normalizeEndpoint } from '../mcp/utils/normalize-endpoint';
@@ -114,12 +115,14 @@ export class McpAuthModule {
             OAuthClientEntity,
             AuthorizationCodeEntity,
             OAuthSessionEntity,
+            OAuthUserProfileEntity,
           ],
         }),
         TypeOrmModule.forFeature([
           OAuthClientEntity,
           AuthorizationCodeEntity,
           OAuthSessionEntity,
+          OAuthUserProfileEntity,
         ]),
       );
     }

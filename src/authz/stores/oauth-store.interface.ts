@@ -1,4 +1,7 @@
-import { OAuthSession } from '../providers/oauth-provider.interface';
+import {
+  OAuthSession,
+  OAuthUserProfile,
+} from '../providers/oauth-provider.interface';
 
 export interface OAuthClient {
   client_id: string;
@@ -29,6 +32,8 @@ export interface AuthorizationCode {
   expires_at: number;
   used_at?: Date;
   github_access_token: string;
+  // Link to stored user profile (if available)
+  user_profile_id?: string;
 }
 
 export interface ClientRegistrationDto {
@@ -105,4 +110,21 @@ export interface IOAuthStore {
   storeOAuthSession(sessionId: string, session: OAuthSession): Promise<void>;
   getOAuthSession(sessionId: string): Promise<OAuthSession | undefined>;
   removeOAuthSession(sessionId: string): Promise<void>;
+
+  // User profile management
+  /**
+   * Upsert a user profile from an OAuth provider and return a stable profile_id.
+   * The profile_id should be stable across logins for the same provider+user.
+   */
+  upsertUserProfile(
+    profile: OAuthUserProfile,
+    provider: string,
+  ): Promise<string>;
+
+  /** Retrieve a stored user profile by its profile_id */
+  getUserProfileById(
+    profileId: string,
+  ): Promise<
+    (OAuthUserProfile & { profile_id: string; provider: string }) | undefined
+  >;
 }

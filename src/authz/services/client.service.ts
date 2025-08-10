@@ -5,14 +5,22 @@ import {
   OAuthClient,
 } from '../stores/oauth-store.interface';
 import { randomBytes } from 'crypto';
+import { OAuthModuleOptions } from '../providers/oauth-provider.interface';
 
 @Injectable()
 export class ClientService {
-  constructor(@Inject('IOAuthStore') private readonly store: IOAuthStore) {}
+  constructor(
+    @Inject('IOAuthStore') private readonly store: IOAuthStore,
+    @Inject('OAUTH_MODULE_OPTIONS')
+    private readonly options: OAuthModuleOptions,
+  ) {}
 
   /**
-   * Register or update a client application
-   * If client with same name exists, update it; otherwise create new
+   * Register a client application.
+   * Always creates a new client record. client_name is not treated as unique.
+   *
+   * Note: Left open for future enhancements (e.g., software statements,
+   * URL-based Client ID Metadata Documents) via preRegistrationChecks().
    */
   async registerClient(
     registrationDto: ClientRegistrationDto,
@@ -50,32 +58,10 @@ export class ClientService {
         registrationDto.token_endpoint_auth_method || 'none',
     };
 
-    // Check if client with same name already exists
-    const existingClient = await this.findClientByName(
-      registrationDto.client_name,
-    );
-    const now = new Date();
+    // Future-proofing: hook for software statements / metadata URL validations
+    await this.preRegistrationChecks(registrationDto);
 
-    if (existingClient) {
-      // Update existing client - merge existing, defaults, and new values
-      const updatedClient: OAuthClient = {
-        ...existingClient,
-        ...defaultClientValues,
-        ...registrationDto,
-        redirect_uris: [
-          ...new Set([
-            ...existingClient.redirect_uris,
-            ...registrationDto.redirect_uris,
-          ]),
-        ],
-        updated_at: now,
-      };
-      const nc = await this.store.storeClient(updatedClient);
-      const filteredClient = Object.fromEntries(
-        Object.entries(nc).filter(([, value]) => value !== null),
-      ) as OAuthClient;
-      return filteredClient;
-    }
+    const now = new Date();
 
     // Create new client - merge defaults with registration data
     const client_id = this.store.generateClientId(
@@ -103,6 +89,18 @@ export class ClientService {
     return filteredClient;
   }
 
+  /**
+   * Hook for future registration policies (e.g., software statements per RFC 7591/7592,
+   * or URL-based Client Registration using Client ID Metadata Documents).
+   * Currently a no-op to keep behavior: always create a new client.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  protected async preRegistrationChecks(
+    _dto: ClientRegistrationDto,
+  ): Promise<void> {
+    // Intentionally left blank. Implement validations/attestations in the future.
+  }
+
   async getClient(clientId: string): Promise<OAuthClient | null> {
     const client = await this.store.getClient(clientId);
     if (!client) {
@@ -123,12 +121,5 @@ export class ClientService {
   ): Promise<boolean> {
     const client = await this.getClient(clientId);
     return client ? client.redirect_uris.includes(redirectUri) : false;
-  }
-
-  private async findClientByName(
-    clientName: string,
-  ): Promise<OAuthClient | undefined> {
-    // Use the new findClient method for efficient lookup
-    return await this.store.findClient(clientName);
   }
 }

@@ -294,6 +294,12 @@ export function createMcpOAuthController(
       res.clearCookie('oauth_session');
       res.clearCookie('oauth_state');
 
+      // Persist user profile and get stable profile_id
+      const user_profile_id = await this.store.upsertUserProfile(
+        user.profile,
+        user.provider,
+      );
+
       // Generate authorization code
       const authCode = randomBytes(32).toString('base64url');
 
@@ -309,6 +315,7 @@ export function createMcpOAuthController(
         resource: session.resource,
         scope: session.scope,
         github_access_token: '', // No longer provider-specific
+        user_profile_id,
       });
 
       // Build redirect URL with authorization code
@@ -328,7 +335,7 @@ export function createMcpOAuthController(
     @Header('content-type', 'application/json')
     @Header('Cache-Control', 'no-store')
     @Header('Pragma', 'no-cache')
-    @HttpCode(201)
+    @HttpCode(200)
     async exchangeToken(
       @Body() body: any,
       @Req() req: any,
@@ -501,11 +508,30 @@ export function createMcpOAuthController(
         );
       }
 
+      let userData: any | undefined = undefined;
+      if (authCode.user_profile_id) {
+        try {
+          const profile = await this.store.getUserProfileById(
+            authCode.user_profile_id,
+          );
+          if (profile) {
+            // Avoid circular/large raw payloads if present
+            userData = { ...profile };
+          }
+        } catch (e) {
+          this.logger.warn('Failed to load user profile for token payload', e);
+        }
+      }
+
       const tokens = this.jwtTokenService.generateTokenPair(
         authCode.user_id,
         clientCredentials.client_id,
         authCode.scope,
         authCode.resource,
+        {
+          user_profile_id: authCode.user_profile_id,
+          user_data: userData,
+        },
       );
       await this.store.removeAuthCode(code);
       this.logger.log(
@@ -550,11 +576,47 @@ export function createMcpOAuthController(
         );
       }
 
-      const newTokens = this.jwtTokenService.refreshAccessToken(refresh_token);
-      if (!newTokens) {
-        throw new BadRequestException('Failed to refresh token');
+      let newTokens: TokenPair | null = null;
+      try {
+        const payload = this.jwtTokenService.validateToken(refresh_token);
+        if (!payload || payload.type !== 'refresh') {
+          throw new BadRequestException('Invalid or expired refresh token');
+        }
+
+        let userData: any | undefined = undefined;
+        if (payload.user_profile_id) {
+          try {
+            const profile = await this.store.getUserProfileById(
+              payload.user_profile_id,
+            );
+            if (profile) userData = { ...profile };
+          } catch (e) {
+            this.logger.warn(
+              'Failed to load user profile for refreshed token payload',
+              e,
+            );
+          }
+        }
+
+        newTokens = this.jwtTokenService.generateTokenPair(
+          payload.sub,
+          clientId,
+          payload.scope,
+          payload.resource,
+          {
+            user_profile_id: payload.user_profile_id,
+            user_data: userData,
+          },
+        );
+      } catch (e) {
+        this.logger.warn(
+          'Refresh flow failed using enriched path, fallback',
+          e,
+        );
+        newTokens = this.jwtTokenService.refreshAccessToken(refresh_token);
       }
 
+      if (!newTokens) throw new BadRequestException('Failed to refresh token');
       return newTokens;
     }
 

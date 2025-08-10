@@ -3,9 +3,11 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtPayload, JwtTokenService } from '../services/jwt-token.service';
+import { IOAuthStore } from '../stores/oauth-store.interface';
 
 export interface AuthenticatedRequest extends Request {
   user: JwtPayload;
@@ -13,9 +15,12 @@ export interface AuthenticatedRequest extends Request {
 
 @Injectable()
 export class McpAuthJwtGuard implements CanActivate {
-  constructor(private readonly jwtTokenService: JwtTokenService) {}
+  constructor(
+    private readonly jwtTokenService: JwtTokenService,
+    @Inject('IOAuthStore') private readonly store: IOAuthStore,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const token = this.extractTokenFromHeader(request);
 
@@ -29,7 +34,35 @@ export class McpAuthJwtGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired access token');
     }
 
-    request.user = payload;
+    // Enrich request.user with friendly fields for tools
+    const enriched: any = { ...payload };
+    try {
+      if (!enriched.user_data && enriched.user_profile_id) {
+        const profile = await this.store.getUserProfileById(
+          enriched.user_profile_id,
+        );
+        if (profile) {
+          enriched.user_data = profile;
+        }
+      }
+      const ud = enriched.user_data || {};
+      // Provide convenient top-level fields commonly used by tools
+      enriched.username =
+        enriched.username || ud.username || ud.id || enriched.sub;
+      enriched.email = enriched.email || ud.email;
+      enriched.displayName = enriched.displayName || ud.displayName;
+      enriched.avatarUrl = enriched.avatarUrl || ud.avatarUrl;
+      enriched.name =
+        enriched.name ||
+        ud.displayName ||
+        ud.username ||
+        ud.email ||
+        enriched.sub;
+    } catch {
+      // Non-fatal; proceed with raw payload
+    }
+
+    request.user = enriched as JwtPayload;
     return true;
   }
 
