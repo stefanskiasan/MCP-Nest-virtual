@@ -4,6 +4,7 @@ import request from 'supertest';
 import { randomBytes, createHash } from 'crypto';
 import { z } from 'zod';
 import { Tool, Context, McpModule } from '../src';
+import jwt from 'jsonwebtoken';
 import { McpAuthModule } from '../src/authz/mcp-oauth.module';
 import { McpAuthJwtGuard } from '../src/authz/guards/jwt-auth.guard';
 import {
@@ -65,6 +66,11 @@ class MockOAuthStore implements IOAuthStore {
   private clients = new Map<string, OAuthClient>();
   private authCodes = new Map<string, AuthorizationCode>();
   private oauthSessions = new Map<string, OAuthSession>();
+  private profilesById = new Map<
+    string,
+    OAuthUserProfile & { profile_id: string; provider: string }
+  >();
+  private providerUserKeyToId = new Map<string, string>();
 
   async storeClient(client: OAuthClient): Promise<OAuthClient> {
     this.clients.set(client.client_id, client);
@@ -118,6 +124,32 @@ class MockOAuthStore implements IOAuthStore {
   async removeOAuthSession(sessionId: string): Promise<void> {
     this.oauthSessions.delete(sessionId);
   }
+
+  async upsertUserProfile(
+    profile: OAuthUserProfile,
+    provider: string,
+  ): Promise<string> {
+    const key = `${provider}:${profile.id}`;
+    let profileId = this.providerUserKeyToId.get(key);
+    if (!profileId) {
+      profileId = `${provider}_${profile.id}`;
+      this.providerUserKeyToId.set(key, profileId);
+    }
+    this.profilesById.set(profileId, {
+      ...profile,
+      profile_id: profileId,
+      provider,
+    });
+    return profileId;
+  }
+
+  async getUserProfileById(
+    profileId: string,
+  ): Promise<
+    (OAuthUserProfile & { profile_id: string; provider: string }) | undefined
+  > {
+    return this.profilesById.get(profileId);
+  }
 }
 
 // Test tool for protected endpoints
@@ -151,6 +183,24 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
   const testServerUrl = 'http://localhost:3000';
   const testClientId = 'test-client-id';
   const testClientSecret = 'test-client-secret';
+
+  const normalizeJwtPayload = (
+    payload: any,
+    kind: 'access' | 'refresh',
+  ) => {
+    const clone: any = { ...payload };
+    delete clone.iat;
+    delete clone.exp;
+    delete clone.nbf;
+    delete clone.jti;
+    if (kind === 'refresh') {
+      // Align client binding and token type to access token semantics for comparison
+      clone.azp = clone.client_id;
+      delete clone.client_id;
+      clone.type = 'access';
+    }
+    return clone;
+  };
 
   beforeAll(async () => {
     mockStore = new MockOAuthStore();
@@ -341,7 +391,7 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
       const response = await request(app.getHttpServer())
         .post('/auth/token')
         .send(tokenRequest)
-        .expect(201);
+        .expect(200);
 
       expect(response.body).toMatchObject({
         access_token: expect.any(String),
@@ -486,6 +536,7 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
 
   describe('Refresh Token Flow', () => {
     let refreshToken: string;
+    let initialAccessToken: string;
 
     beforeEach(async () => {
       // Get tokens for testing
@@ -531,6 +582,7 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
           client_id: registeredClient.client_id,
         });
 
+      initialAccessToken = tokenResponse.body.access_token;
       refreshToken = tokenResponse.body.refresh_token;
     });
 
@@ -541,7 +593,7 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
           grant_type: 'refresh_token',
           refresh_token: refreshToken,
         })
-        .expect(201);
+        .expect(200);
 
       expect(response.body).toMatchObject({
         access_token: expect.any(String),
@@ -549,6 +601,29 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
         token_type: 'bearer',
         expires_in: expect.any(Number),
       });
+
+      // Compare claims between initial and refreshed access tokens after normalizing
+      const initialAccessPayload: any = jwt.verify(
+        initialAccessToken,
+        testJwtSecret,
+      );
+      const refreshedAccessPayload: any = jwt.verify(
+        response.body.access_token,
+        testJwtSecret,
+      );
+
+      expect(initialAccessPayload.type).toBe('access');
+      expect(refreshedAccessPayload.type).toBe('access');
+
+      const normalizedInitial = normalizeJwtPayload(
+        initialAccessPayload,
+        'access',
+      );
+      const normalizedRefreshed = normalizeJwtPayload(
+        refreshedAccessPayload,
+        'access',
+      );
+      expect(normalizedRefreshed).toEqual(normalizedInitial);
     });
 
     it('should reject refresh with invalid refresh token', async () => {

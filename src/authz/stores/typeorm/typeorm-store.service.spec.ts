@@ -6,6 +6,7 @@ import {
   OAuthClientEntity,
   AuthorizationCodeEntity,
   OAuthSessionEntity,
+  OAuthUserProfileEntity,
 } from './entities';
 import { OAuthClient, AuthorizationCode } from '../oauth-store.interface';
 import { OAuthSession } from '../../providers/oauth-provider.interface';
@@ -15,6 +16,7 @@ describe('TypeOrmStore', () => {
   let clientRepository: jest.Mocked<Repository<OAuthClientEntity>>;
   let authCodeRepository: jest.Mocked<Repository<AuthorizationCodeEntity>>;
   let sessionRepository: jest.Mocked<Repository<OAuthSessionEntity>>;
+  let userProfileRepository: jest.Mocked<Repository<OAuthUserProfileEntity>>;
 
   beforeEach(async () => {
     // Create mocked repositories
@@ -36,6 +38,12 @@ describe('TypeOrmStore', () => {
       delete: jest.fn(),
     };
 
+    const userProfileRepository = {
+      save: jest.fn(),
+      findOne: jest.fn(),
+      delete: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TypeOrmStore,
@@ -50,6 +58,10 @@ describe('TypeOrmStore', () => {
         {
           provide: getRepositoryToken(OAuthSessionEntity),
           useValue: mockSessionRepository,
+        },
+        {
+          provide: getRepositoryToken(OAuthUserProfileEntity),
+          useValue: userProfileRepository,
         },
       ],
     }).compile();

@@ -27,6 +27,7 @@ export interface TokenPair {
 @Injectable()
 export class JwtTokenService {
   private jwtSecret: string;
+  private issuer: string;
 
   constructor(@Inject('OAUTH_MODULE_OPTIONS') options: OAuthModuleOptions) {
     // Use JWT secret from environment variable
@@ -37,6 +38,7 @@ export class JwtTokenService {
     }
 
     this.jwtSecret = jwtSecret;
+    this.issuer = options.jwtIssuer || options.serverUrl || 'https://localhost:3000';
   }
 
   generateTokenPair(
@@ -51,13 +53,11 @@ export class JwtTokenService {
     }
 
     const jti = randomBytes(16).toString('hex'); // JWT ID for tracking
-    const serverUrl = process.env.SERVER_URL || 'https://localhost:3000';
 
     const accessTokenPayload: any = {
       sub: userId,
       azp: clientId, // Use azp instead of client_id
-      gty: 'client_credentials',
-      iss: serverUrl,
+      iss: this.issuer,
       aud: resource,
       resource: resource, // Always include resource
       type: 'access' as const,
@@ -69,10 +69,8 @@ export class JwtTokenService {
       accessTokenPayload.user_data = extras.user_data;
     }
 
-    // Only include scope if it's not empty
-    if (scope && scope.trim() !== '') {
-      accessTokenPayload.scope = scope;
-    }
+    // Always include scope to ensure parity with refresh token claims
+    accessTokenPayload.scope = scope || '';
 
     const refreshTokenPayload: any = {
       sub: userId,
@@ -81,7 +79,7 @@ export class JwtTokenService {
       resource,
       type: 'refresh' as const,
       jti: `refresh_${jti}`,
-      iss: serverUrl,
+      iss: this.issuer,
       aud: resource,
     };
     if (extras?.user_profile_id) {
