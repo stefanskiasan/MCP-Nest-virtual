@@ -6,8 +6,9 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
+import { OAUTH_TABLE_PREFIX } from '../constants';
 
-@Entity('oauth_user_profiles')
+@Entity(`${OAUTH_TABLE_PREFIX}user_profiles`)
 export class OAuthUserProfileEntity {
   // Stable profile id we return to callers
   @PrimaryColumn()

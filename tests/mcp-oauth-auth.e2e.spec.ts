@@ -184,10 +184,7 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
   const testClientId = 'test-client-id';
   const testClientSecret = 'test-client-secret';
 
-  const normalizeJwtPayload = (
-    payload: any,
-    kind: 'access' | 'refresh',
-  ) => {
+  const normalizeJwtPayload = (payload: any, kind: 'access' | 'refresh') => {
     const clone: any = { ...payload };
     delete clone.iat;
     delete clone.exp;

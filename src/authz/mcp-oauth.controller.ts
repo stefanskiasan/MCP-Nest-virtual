@@ -140,7 +140,7 @@ export function createMcpOAuthController(
      * Middleware to capture raw body for form-encoded requests
      * This is needed when bodyParser is disabled in the main app
      */
-  captureRawBody(req: RequestWithRawBody, res: Response, next: NextFunction) {
+    captureRawBody(req: RequestWithRawBody, res: Response, next: NextFunction) {
       if (
         req.headers['content-type']?.includes(
           'application/x-www-form-urlencoded',
@@ -714,7 +714,7 @@ export function createMcpOAuthController(
         );
       }
 
-  let userData: Record<string, unknown> | undefined = undefined;
+      let userData: Record<string, unknown> | undefined = undefined;
       if (authCode.user_profile_id) {
         try {
           const profile = await this.store.getUserProfileById(
@@ -789,7 +789,7 @@ export function createMcpOAuthController(
           throw new BadRequestException('Invalid or expired refresh token');
         }
 
-  let userData: Record<string, unknown> | undefined = undefined;
+        let userData: Record<string, unknown> | undefined = undefined;
         if (payload.user_profile_id) {
           try {
             const profile = await this.store.getUserProfileById(

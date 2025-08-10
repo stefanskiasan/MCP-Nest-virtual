@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryColumn, CreateDateColumn } from 'typeorm';
+import { OAUTH_TABLE_PREFIX } from '../constants';
 
-@Entity('authorization_codes')
+@Entity(`${OAUTH_TABLE_PREFIX}authorization_codes`)
 export class AuthorizationCodeEntity {
   @PrimaryColumn()
   code: string;

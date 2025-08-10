@@ -43,15 +43,15 @@ dotenv.config();
       // OR just omit storeConfiguration entirely for memory store
 
       // Option 2: Use TypeORM for persistent storage
-      storeConfiguration: {
-        type: 'typeorm',
-        options: {
-          type: 'sqlite',
-          database: './oauth.db',
-          synchronize: true,
-          logging: false,
-        },
-      },
+      // storeConfiguration: {
+      //   type: 'typeorm',
+      //   options: {
+      //     type: 'sqlite',
+      //     database: './oauth.db',
+      //     synchronize: true,
+      //     logging: false,
+      //   },
+      // },
 
       // Option 3: Use Drizzle for persistent storage
       // storeConfiguration: {

@@ -5,8 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { OAUTH_TABLE_PREFIX } from '../constants';
 
-@Entity('oauth_clients')
+@Entity(`${OAUTH_TABLE_PREFIX}clients`)
 export class OAuthClientEntity {
   @PrimaryColumn()
   client_id: string;

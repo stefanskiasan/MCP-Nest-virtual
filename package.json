@@ -1,6 +1,6 @@
 {
   "name": "@rekog/mcp-nest",
-  "version": "1.7.4-alpha.15",
+  "version": "1.8.0",
   "description": "NestJS module for creating Model Context Protocol (MCP) servers",
   "main": "dist/index.js",
   "license": "MIT",
@@ -57,7 +57,6 @@
     "@nestjs/platform-express": "^11.1.1",
     "@nestjs/platform-fastify": "^11.1.6",
     "@nestjs/testing": "^11.1.1",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.2",
     "@types/jest": "^29.5.14",
@@ -78,13 +77,11 @@
   },
   "dependencies": {
     "@nestjs/config": "^4.0.2",
-    "better-sqlite3": "11.10.0",
     "cookie-parser": "^1.4.7",
     "passport": "^0.7.0",
     "passport-github": "^1.1.0",
     "passport-google-oauth20": "^2.0.0",
     "path-to-regexp": "^8.2.0",
-    "rxjs": "^7.8.2",
-    "sqlite3": "^5.1.7"
+    "rxjs": "^7.8.2"
   }
 }

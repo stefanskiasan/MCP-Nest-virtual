@@ -38,7 +38,8 @@ export class JwtTokenService {
     }
 
     this.jwtSecret = jwtSecret;
-    this.issuer = options.jwtIssuer || options.serverUrl || 'https://localhost:3000';
+    this.issuer =
+      options.jwtIssuer || options.serverUrl || 'https://localhost:3000';
   }
 
   generateTokenPair(

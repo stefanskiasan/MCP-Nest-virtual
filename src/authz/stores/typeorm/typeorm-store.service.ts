@@ -8,6 +8,7 @@ import {
   OAuthSessionEntity,
   OAuthUserProfileEntity,
 } from './entities';
+import { OAUTH_TYPEORM_CONNECTION_NAME } from './constants';
 import {
   OAuthSession,
   OAuthUserProfile,
@@ -21,13 +22,13 @@ import {
 @Injectable()
 export class TypeOrmStore implements IOAuthStore {
   constructor(
-    @InjectRepository(OAuthClientEntity)
+    @InjectRepository(OAuthClientEntity, OAUTH_TYPEORM_CONNECTION_NAME)
     private readonly clientRepository: Repository<OAuthClientEntity>,
-    @InjectRepository(AuthorizationCodeEntity)
+    @InjectRepository(AuthorizationCodeEntity, OAUTH_TYPEORM_CONNECTION_NAME)
     private readonly authCodeRepository: Repository<AuthorizationCodeEntity>,
-    @InjectRepository(OAuthSessionEntity)
+    @InjectRepository(OAuthSessionEntity, OAUTH_TYPEORM_CONNECTION_NAME)
     private readonly sessionRepository: Repository<OAuthSessionEntity>,
-    @InjectRepository(OAuthUserProfileEntity)
+    @InjectRepository(OAuthUserProfileEntity, OAUTH_TYPEORM_CONNECTION_NAME)
     private readonly userProfileRepository: Repository<OAuthUserProfileEntity>,
   ) {}
 

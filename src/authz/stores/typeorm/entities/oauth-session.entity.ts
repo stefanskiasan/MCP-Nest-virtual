@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryColumn, CreateDateColumn } from 'typeorm';
+import { OAUTH_TABLE_PREFIX } from '../constants';
 
-@Entity('oauth_sessions')
+@Entity(`${OAUTH_TABLE_PREFIX}sessions`)
 export class OAuthSessionEntity {
   @PrimaryColumn()
   sessionId: string;

@@ -14,7 +14,25 @@ The `McpAuthModule` provides a complete OAuth 2.1 compliant Identity Provider (I
 
 ## Quick Start
 
-### Basic Setup
+The fastest way to try out Remote MCP servers with built-in authentication is by deploying on Railway with the template below:
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/G6BLGK?referralCode=XAdIhJ)
+
+For the deployment you need the following:
+
+1. Create a [New GitHub App](https://github.com/settings/applications/new), required for user authentication
+    * For the "Authorization callback URL" add the placeholder `http://localhost:3000/auth/callback` and create the app, you will update it at step 4.
+2. Add the GitHub Client ID and Client Secret in the Deploy panel on Railway, and click "Deploy"
+3. After the app is deployed, the Custom Domain is available in the railway deployment settings page.
+4. Update the "Authorization callback URL" of the GitHub app to the custom domain with the postfix as shown here: `https://<custom-domain>.up.railway.app/auth/callback`.
+
+**And you are ready to roll!**
+
+Open MCP Inspector at `https://<custom-domain>.up.railway.app/mcp` to see the available resources and tools.
+
+The code of the deployed project is in this GitHub repository: [rekog-labs/mcp-nest-auth-starter](https://github.com/rekog-labs/mcp-nest-auth-starter).
+
+## Setting up a new project
 
 Complete working example from the playground:
 

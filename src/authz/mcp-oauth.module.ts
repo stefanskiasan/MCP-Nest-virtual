@@ -23,6 +23,7 @@ import {
 } from './stores/typeorm/entities';
 import { TypeOrmStore } from './stores/typeorm/typeorm-store.service';
 import { normalizeEndpoint } from '../mcp/utils/normalize-endpoint';
+import { OAUTH_TYPEORM_CONNECTION_NAME } from './stores/typeorm/constants';
 
 // Default configuration values
 export const DEFAULT_OPTIONS: OAuthModuleDefaults = {
@@ -114,20 +115,24 @@ export class McpAuthModule {
       imports.push(
         TypeOrmModule.forRoot({
           ...typeormOptions,
+          // Use a unique connection name for the OAuth store to avoid clashes
+          name: OAUTH_TYPEORM_CONNECTION_NAME,
           entities: [
-            ...((typeormOptions.entities || []) as any[]),
             OAuthClientEntity,
             AuthorizationCodeEntity,
             OAuthSessionEntity,
             OAuthUserProfileEntity,
           ],
         }),
-        TypeOrmModule.forFeature([
-          OAuthClientEntity,
-          AuthorizationCodeEntity,
-          OAuthSessionEntity,
-          OAuthUserProfileEntity,
-        ]),
+        TypeOrmModule.forFeature(
+          [
+            OAuthClientEntity,
+            AuthorizationCodeEntity,
+            OAuthSessionEntity,
+            OAuthUserProfileEntity,
+          ],
+          OAUTH_TYPEORM_CONNECTION_NAME,
+        ),
       );
     }
 
@@ -165,8 +170,8 @@ export class McpAuthModule {
           resolvedOptions.disableEndpoints
             .wellKnownAuthorizationServerMetadata ?? false,
         disableWellKnownProtectedResourceMetadata:
-          resolvedOptions.disableEndpoints
-            .wellKnownProtectedResourceMetadata ?? false,
+          resolvedOptions.disableEndpoints.wellKnownProtectedResourceMetadata ??
+          false,
       },
     );
 

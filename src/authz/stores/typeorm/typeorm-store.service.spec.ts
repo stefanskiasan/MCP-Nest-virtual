@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DeleteResult } from 'typeorm';
 import { TypeOrmStore } from './typeorm-store.service';
 import {
   OAuthClientEntity,
@@ -10,13 +11,13 @@ import {
 } from './entities';
 import { OAuthClient, AuthorizationCode } from '../oauth-store.interface';
 import { OAuthSession } from '../../providers/oauth-provider.interface';
+import { OAUTH_TYPEORM_CONNECTION_NAME } from './constants';
 
 describe('TypeOrmStore', () => {
   let service: TypeOrmStore;
   let clientRepository: jest.Mocked<Repository<OAuthClientEntity>>;
   let authCodeRepository: jest.Mocked<Repository<AuthorizationCodeEntity>>;
   let sessionRepository: jest.Mocked<Repository<OAuthSessionEntity>>;
-  let userProfileRepository: jest.Mocked<Repository<OAuthUserProfileEntity>>;
 
   beforeEach(async () => {
     // Create mocked repositories
@@ -38,7 +39,7 @@ describe('TypeOrmStore', () => {
       delete: jest.fn(),
     };
 
-    const userProfileRepository = {
+    const mockUserProfileRepository = {
       save: jest.fn(),
       findOne: jest.fn(),
       delete: jest.fn(),
@@ -48,30 +49,50 @@ describe('TypeOrmStore', () => {
       providers: [
         TypeOrmStore,
         {
-          provide: getRepositoryToken(OAuthClientEntity),
+          provide: getRepositoryToken(
+            OAuthClientEntity,
+            OAUTH_TYPEORM_CONNECTION_NAME,
+          ),
           useValue: mockClientRepository,
         },
         {
-          provide: getRepositoryToken(AuthorizationCodeEntity),
+          provide: getRepositoryToken(
+            AuthorizationCodeEntity,
+            OAUTH_TYPEORM_CONNECTION_NAME,
+          ),
           useValue: mockAuthCodeRepository,
         },
         {
-          provide: getRepositoryToken(OAuthSessionEntity),
+          provide: getRepositoryToken(
+            OAuthSessionEntity,
+            OAUTH_TYPEORM_CONNECTION_NAME,
+          ),
           useValue: mockSessionRepository,
         },
         {
-          provide: getRepositoryToken(OAuthUserProfileEntity),
-          useValue: userProfileRepository,
+          provide: getRepositoryToken(
+            OAuthUserProfileEntity,
+            OAUTH_TYPEORM_CONNECTION_NAME,
+          ),
+          useValue: mockUserProfileRepository,
         },
       ],
     }).compile();
 
     service = module.get<TypeOrmStore>(TypeOrmStore);
-    clientRepository = module.get(getRepositoryToken(OAuthClientEntity));
-    authCodeRepository = module.get(
-      getRepositoryToken(AuthorizationCodeEntity),
+    clientRepository = module.get(
+      getRepositoryToken(OAuthClientEntity, OAUTH_TYPEORM_CONNECTION_NAME),
     );
-    sessionRepository = module.get(getRepositoryToken(OAuthSessionEntity));
+    authCodeRepository = module.get(
+      getRepositoryToken(
+        AuthorizationCodeEntity,
+        OAUTH_TYPEORM_CONNECTION_NAME,
+      ),
+    );
+    sessionRepository = module.get(
+      getRepositoryToken(OAuthSessionEntity, OAUTH_TYPEORM_CONNECTION_NAME),
+    );
+    // Note: userProfileRepository is not directly used in tests below; it's provided for completeness
   });
 
   afterEach(() => {
@@ -295,7 +316,10 @@ describe('TypeOrmStore', () => {
         authCodeRepository.findOne.mockResolvedValue(
           expiredAuthCode as AuthorizationCodeEntity,
         );
-        authCodeRepository.delete.mockResolvedValue({} as any);
+        authCodeRepository.delete.mockResolvedValue({
+          raw: {},
+          affected: 1,
+        } as DeleteResult);
 
         const result = await service.getAuthCode('expired-code');
 
@@ -328,7 +352,10 @@ describe('TypeOrmStore', () => {
 
     describe('removeAuthCode', () => {
       it('should remove an authorization code', async () => {
-        authCodeRepository.delete.mockResolvedValue({} as any);
+        authCodeRepository.delete.mockResolvedValue({
+          raw: {},
+          affected: 1,
+        } as DeleteResult);
 
         await service.removeAuthCode('test-auth-code');
 
@@ -407,7 +434,10 @@ describe('TypeOrmStore', () => {
         sessionRepository.findOne.mockResolvedValue(
           expiredSession as OAuthSessionEntity,
         );
-        sessionRepository.delete.mockResolvedValue({} as any);
+        sessionRepository.delete.mockResolvedValue({
+          raw: {},
+          affected: 1,
+        } as DeleteResult);
 
         const result = await service.getOAuthSession('expired-session');
 
@@ -440,7 +470,10 @@ describe('TypeOrmStore', () => {
 
     describe('removeOAuthSession', () => {
       it('should remove an OAuth session', async () => {
-        sessionRepository.delete.mockResolvedValue({} as any);
+        sessionRepository.delete.mockResolvedValue({
+          raw: {},
+          affected: 1,
+        } as DeleteResult);
 
         await service.removeOAuthSession('session-123');
 
