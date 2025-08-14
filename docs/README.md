@@ -14,4 +14,4 @@
 
 ## Playground
 
-- [Playground README](./playground/README.md) — How to use the playground examples and clients.
+- [Playground README](../playground/README.md) — How to use the playground examples and clients.
