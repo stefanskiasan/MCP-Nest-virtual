@@ -1,10 +1,10 @@
 ## Documentation
 
+- [Tools Guide](./tools.md) — How to create and register tools.
+- [Server Examples](./server-examples.md) — Example server setups and configurations.
 - [Prompts Guide](./prompts.md) — How to define and use prompts.
 - [Resource Templates Guide](./resource-templates.md) — Resource URI templates and usage.
 - [Resources Guide](./resources.md) — Defining and exposing resources.
-- [Server Examples](./server-examples.md) — Example server setups and configurations.
-- [Tools Guide](./tools.md) — How to create and register tools.
 - [Dependency Injection](docs/dependency-injection.md) — Leverage NestJS DI system throughout MCP components.
 
 ### OAuth & Authorization
