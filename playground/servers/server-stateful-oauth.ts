@@ -33,8 +33,8 @@ dotenv.config();
         ],
       },
       disableEndpoints: {
-        wellKnownAuthorizationServerMetadata: true,
-        wellKnownProtectedResourceMetadata: true,
+        wellKnownAuthorizationServerMetadata: false,
+        wellKnownProtectedResourceMetadata: false,
       },
       // Storage Configuration - choose one of the following options:
 
