@@ -63,11 +63,12 @@ dotenv.config();
     McpModule.forRoot({
       name: 'playground-mcp-server',
       version: '0.0.1',
-      streamableHttp: {
-        enableJsonResponse: false,
-        sessionIdGenerator: () => randomUUID(),
-        statelessMode: false,
-      },
+      // uncomment for stateful mode
+      // streamableHttp: {
+      //   enableJsonResponse: false,
+      //   sessionIdGenerator: () => randomUUID(),
+      //   statelessMode: false,
+      // },
       guards: [McpAuthJwtGuard],
     }),
   ],

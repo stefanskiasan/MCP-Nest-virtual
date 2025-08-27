@@ -370,7 +370,7 @@ Complete examples can be found in:
 - `playground/servers/server-stateless.ts` - Stateless HTTP server
 - `playground/servers/stdio.ts` - STDIO server
 - `playground/servers/server-stateful-fastify.ts` - Fastify server
-- `playground/servers/server-stateful-oauth.ts` - Server with OAuth
+- `playground/servers/server-oauth.ts` - Server with OAuth
 - `playground/servers/advanced/` - Advanced pattern with custom controllers
 
 ## Related
