@@ -269,7 +269,6 @@ describe('TypeOrmStore', () => {
       code_challenge: 'test-challenge',
       code_challenge_method: 'S256',
       expires_at: Date.now() + 600000, // 10 minutes from now
-      github_access_token: 'github-token-123',
     };
 
     const expiredAuthCode: AuthorizationCode = {

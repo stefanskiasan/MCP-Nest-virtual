@@ -447,7 +447,6 @@ export function createMcpOAuthController(
         expires_at: Date.now() + this.options.authCodeExpiresIn,
         resource: session.resource,
         scope: session.scope,
-        github_access_token: '', // No longer provider-specific
         user_profile_id,
       });
 

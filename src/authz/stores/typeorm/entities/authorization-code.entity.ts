@@ -33,9 +33,6 @@ export class AuthorizationCodeEntity {
   @Column({ nullable: true })
   used_at?: Date;
 
-  @Column()
-  github_access_token: string;
-
   @Column({ nullable: true })
   user_profile_id?: string;
 

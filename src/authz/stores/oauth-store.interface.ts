@@ -31,7 +31,6 @@ export interface AuthorizationCode {
   scope?: string;
   expires_at: number;
   used_at?: Date;
-  github_access_token: string;
   // Link to stored user profile (if available)
   user_profile_id?: string;
 }

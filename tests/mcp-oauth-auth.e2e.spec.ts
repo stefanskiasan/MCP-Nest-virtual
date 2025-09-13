@@ -372,7 +372,6 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
         expires_at: Date.now() + 600000, // 10 minutes
         resource: `${testServerUrl}/mcp`,
         scope: '',
-        github_access_token: 'mock-token',
       });
     });
 
@@ -467,7 +466,6 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
         expires_at: Date.now() + 600000,
         resource: `${testServerUrl}/mcp`,
         scope: '',
-        github_access_token: 'mock-token',
       });
 
       const tokenResponse = await request(app.getHttpServer())
@@ -566,7 +564,6 @@ describe('E2E: McpAuthModule OAuth Flow', () => {
         expires_at: Date.now() + 600000,
         resource: `${testServerUrl}/mcp`,
         scope: '',
-        github_access_token: 'mock-token',
       });
 
       const tokenResponse = await request(app.getHttpServer())
