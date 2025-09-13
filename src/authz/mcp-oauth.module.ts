@@ -2,7 +2,6 @@ import { DynamicModule, Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { McpAuthJwtGuard } from './guards/jwt-auth.guard';
 import { createMcpOAuthController } from './mcp-oauth.controller';
 import {
@@ -15,21 +14,14 @@ import { ClientService } from './services/client.service';
 import { JwtTokenService } from './services/jwt-token.service';
 import { OAuthStrategyService } from './services/oauth-strategy.service';
 import { MemoryStore } from './stores/memory-store.service';
-import {
-  AuthorizationCodeEntity,
-  OAuthClientEntity,
-  OAuthSessionEntity,
-  OAuthUserProfileEntity,
-} from './stores/typeorm/entities';
-import { TypeOrmStore } from './stores/typeorm/typeorm-store.service';
 import { normalizeEndpoint } from '../mcp/utils/normalize-endpoint';
 import { OAUTH_TYPEORM_CONNECTION_NAME } from './stores/typeorm/constants';
 
 // Default configuration values
 export const DEFAULT_OPTIONS: OAuthModuleDefaults = {
-  serverUrl: 'https://localhost:3000',
-  resource: 'https://localhost:3000/mcp',
-  jwtIssuer: 'https://localhost:3000',
+  serverUrl: 'http://localhost:3000',
+  resource: 'http://localhost:3000/mcp',
+  jwtIssuer: 'http://localhost:3000',
   jwtAudience: 'mcp-client',
   jwtAccessTokenExpiresIn: '60s',
   jwtRefreshTokenExpiresIn: '30d',
@@ -110,30 +102,47 @@ export class McpAuthModule {
     // Add TypeORM configuration if using TypeORM store
     const storeConfig = resolvedOptions.storeConfiguration;
     const isTypeOrmStore = storeConfig?.type === 'typeorm';
-    if (storeConfig && storeConfig.type === 'typeorm') {
+    if (isTypeOrmStore) {
       const typeormOptions = storeConfig.options;
-      imports.push(
-        TypeOrmModule.forRoot({
-          ...typeormOptions,
-          // Use a unique connection name for the OAuth store to avoid clashes
-          name: OAUTH_TYPEORM_CONNECTION_NAME,
-          entities: [
-            OAuthClientEntity,
-            AuthorizationCodeEntity,
-            OAuthSessionEntity,
-            OAuthUserProfileEntity,
-          ],
-        }),
-        TypeOrmModule.forFeature(
-          [
-            OAuthClientEntity,
-            AuthorizationCodeEntity,
-            OAuthSessionEntity,
-            OAuthUserProfileEntity,
-          ],
-          OAUTH_TYPEORM_CONNECTION_NAME,
-        ),
-      );
+      try {
+        // Require TypeORM-related modules only when needed
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { TypeOrmModule } = require('@nestjs/typeorm');
+        const {
+          OAuthClientEntity,
+          AuthorizationCodeEntity,
+          OAuthSessionEntity,
+          OAuthUserProfileEntity,
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+        } = require('./stores/typeorm/entities');
+
+        imports.push(
+          TypeOrmModule.forRoot({
+            ...typeormOptions,
+            // Use a unique connection name for the OAuth store to avoid clashes
+            name: OAUTH_TYPEORM_CONNECTION_NAME,
+            entities: [
+              OAuthClientEntity,
+              AuthorizationCodeEntity,
+              OAuthSessionEntity,
+              OAuthUserProfileEntity,
+            ],
+          }),
+          TypeOrmModule.forFeature(
+            [
+              OAuthClientEntity,
+              AuthorizationCodeEntity,
+              OAuthSessionEntity,
+              OAuthUserProfileEntity,
+            ],
+            OAUTH_TYPEORM_CONNECTION_NAME,
+          ),
+        );
+      } catch (err) {
+        throw new Error(
+          "To use the TypeORM store, please install '@nestjs/typeorm' and 'typeorm'.",
+        );
+      }
     }
 
     // Create store provider based on configuration
@@ -157,10 +166,7 @@ export class McpAuthModule {
       McpAuthJwtGuard,
     ];
 
-    // Add TypeOrmStore to providers if using TypeORM
-    if (isTypeOrmStore) {
-      providers.push(TypeOrmStore);
-    }
+    // No additional providers needed for TypeORM store - provider is created dynamically
 
     // Create controller with apiPrefix
     const OAuthControllerClass = createMcpOAuthController(
@@ -285,6 +291,10 @@ export class McpAuthModule {
 
     if (storeConfiguration.type === 'typeorm') {
       // TypeORM store
+      const {
+        TypeOrmStore,
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+      } = require('./stores/typeorm/typeorm-store.service');
       return {
         provide: 'IOAuthStore',
         useClass: TypeOrmStore,
