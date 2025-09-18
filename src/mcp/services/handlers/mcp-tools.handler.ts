@@ -12,6 +12,8 @@ import { McpRegistryService } from '../mcp-registry.service';
 import { McpHandlerBase } from './mcp-handler.base';
 import { ZodTypeAny } from 'zod';
 import { HttpRequest } from '../../interfaces/http-adapter.interface';
+import { McpSupabaseConfigService } from '../mcp-supabase-config.service';
+import { McpToolForwarderService } from '../mcp-tool-forwarder.service';
 import { McpRequestWithUser } from 'src/authz';
 
 @Injectable({ scope: Scope.REQUEST })
@@ -58,50 +60,93 @@ export class McpToolsHandler extends McpHandlerBase {
   }
 
   registerHandlers(mcpServer: McpServer, httpRequest: HttpRequest) {
-    if (this.registry.getTools(this.mcpModuleId).length === 0) {
-      this.logger.debug('No tools registered, skipping tool handlers');
-      return;
-    }
+    mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      // Prefer Supabase-driven tools when a server id is supplied; fallback to discovered
+      try {
+        const contextId = ContextIdFactory.getByRequest(httpRequest);
+        this.moduleRef.registerRequestByContextId(httpRequest, contextId);
+        const supabase = await this.moduleRef.resolve(
+          McpSupabaseConfigService,
+          contextId,
+          { strict: false },
+        );
+        const serverId = supabase.getServerIdFromRequest(httpRequest);
+        if (serverId) {
+          const rows = await supabase.fetchToolsByServerId(serverId);
+          const tools = rows.map((row) => {
+            const name = row.toolKey || row.alias_name || `tool_${row.id}`;
+            const t: any = {
+              name,
+              description: row.description || undefined,
+            };
+            if (row.inputSchema && typeof row.inputSchema === 'object') {
+              t.inputSchema = row.inputSchema;
+            }
+            return t;
+          });
+          if (tools.length > 0) return { tools };
+        }
+      } catch (e) {
+        // Log and continue with fallback
+        this.logger.warn(`Supabase tools/list fallback: ${e}`);
+      }
 
-    mcpServer.server.setRequestHandler(ListToolsRequestSchema, () => {
-      const tools = this.registry.getTools(this.mcpModuleId).map((tool) => {
-        // Create base schema
-        const toolSchema = {
+      // Fallback: discovered tools via decorators
+      const found = this.registry.getTools(this.mcpModuleId);
+      if (found.length === 0) {
+        this.logger.debug('No tools registered (discovered or Supabase)');
+      }
+
+      const tools = found.map((tool) => {
+        const toolSchema: any = {
           name: tool.metadata.name,
           description: tool.metadata.description,
           annotations: tool.metadata.annotations,
         };
-
-        // Add input schema if defined
         if (tool.metadata.parameters) {
           toolSchema['inputSchema'] = zodToJsonSchema(tool.metadata.parameters);
         }
-
-        // Add output schema if defined, ensuring it has type: 'object'
         if (tool.metadata.outputSchema) {
           const outputSchema = zodToJsonSchema(tool.metadata.outputSchema);
-
-          // Create a new object that explicitly includes type: 'object'
-          const jsonSchema = {
-            ...outputSchema,
-            type: 'object',
-          };
-
+          const jsonSchema = { ...outputSchema, type: 'object' };
           toolSchema['outputSchema'] = jsonSchema;
         }
-
         return toolSchema;
       });
-
-      return {
-        tools,
-      };
+      return { tools };
     });
 
     mcpServer.server.setRequestHandler(
       CallToolRequestSchema,
       async (request) => {
         this.logger.debug('CallToolRequestSchema is being called');
+        // Try Supabase forwarder first if server id is present
+        try {
+          const contextId = ContextIdFactory.getByRequest(httpRequest);
+          this.moduleRef.registerRequestByContextId(httpRequest, contextId);
+          const supabase = await this.moduleRef.resolve(
+            McpSupabaseConfigService,
+            contextId,
+            { strict: false },
+          );
+          const serverId = supabase.getServerIdFromRequest(httpRequest);
+          if (serverId) {
+            const forwarder = await this.moduleRef.resolve(
+              McpToolForwarderService,
+              contextId,
+              { strict: false },
+            );
+            const forwarded = await forwarder.forward(
+              serverId,
+              request.params.name,
+              request.params.arguments || {},
+              httpRequest,
+            );
+            return this.formatToolResult(forwarded);
+          }
+        } catch (e) {
+          this.logger.warn(`Supabase forwarding failed; fallback to local: ${e}`);
+        }
 
         const toolInfo = this.registry.findTool(
           this.mcpModuleId,

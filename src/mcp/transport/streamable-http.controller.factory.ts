@@ -50,6 +50,17 @@ export function createStreamableHttpController(
       await this.mcpStreamableHttpService.handlePostRequest(req, res, body);
     }
 
+    // Variant with path parameter /:mcpServerId to pass the server id in the URL
+    @Post(`${normalizeEndpoint(`${apiPrefix}/${endpoint}`)}/:mcpServerId`)
+    @UseGuards(...guards)
+    async handlePostRequestWithServerId(
+      @Req() req: any,
+      @Res() res: any,
+      @Body() body: unknown,
+    ): Promise<void> {
+      await this.mcpStreamableHttpService.handlePostRequest(req, res, body);
+    }
+
     /**
      * GET endpoint for SSE streams - not supported in stateless mode
      */
@@ -59,12 +70,30 @@ export function createStreamableHttpController(
       await this.mcpStreamableHttpService.handleGetRequest(req, res);
     }
 
+    @Get(`${normalizeEndpoint(`${apiPrefix}/${endpoint}`)}/:mcpServerId`)
+    @UseGuards(...guards)
+    async handleGetRequestWithServerId(
+      @Req() req: any,
+      @Res() res: any,
+    ): Promise<void> {
+      await this.mcpStreamableHttpService.handleGetRequest(req, res);
+    }
+
     /**
      * DELETE endpoint for terminating sessions - not supported in stateless mode
      */
     @Delete(`${normalizeEndpoint(`${apiPrefix}/${endpoint}`)}`)
     @UseGuards(...guards)
     async handleDeleteRequest(@Req() req: any, @Res() res: any): Promise<void> {
+      await this.mcpStreamableHttpService.handleDeleteRequest(req, res);
+    }
+
+    @Delete(`${normalizeEndpoint(`${apiPrefix}/${endpoint}`)}/:mcpServerId`)
+    @UseGuards(...guards)
+    async handleDeleteRequestWithServerId(
+      @Req() req: any,
+      @Res() res: any,
+    ): Promise<void> {
       await this.mcpStreamableHttpService.handleDeleteRequest(req, res);
     }
   }

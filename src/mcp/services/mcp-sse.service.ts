@@ -9,6 +9,7 @@ import { McpRegistryService } from './mcp-registry.service';
 import { SsePingService } from './sse-ping.service';
 import { normalizeEndpoint } from '../utils/normalize-endpoint';
 import { HttpAdapterFactory } from '../adapters';
+import { McpSupabaseConfigService } from './mcp-supabase-config.service';
 
 @Injectable()
 export class McpSseService {
@@ -28,6 +29,7 @@ export class McpSseService {
     private readonly moduleRef: ModuleRef,
     private readonly toolRegistry: McpRegistryService,
     @Inject(SsePingService) private readonly pingService: SsePingService,
+    private readonly supabaseService: McpSupabaseConfigService,
   ) {}
 
   /**
@@ -51,6 +53,7 @@ export class McpSseService {
     apiPrefix: string,
   ): Promise<void> {
     const adapter = HttpAdapterFactory.getAdapter(rawReq, rawRes);
+    const req = adapter.adaptRequest(rawReq);
     const res = adapter.adaptResponse(rawRes);
 
     // Create a new SSE transport instance
@@ -62,21 +65,45 @@ export class McpSseService {
     );
     const sessionId = transport.sessionId;
 
-    // Create a new MCP server instance with dynamic capabilities
+    // Build capabilities and server info. If Supabase mode is enabled and a server id
+    // is provided, fetch DB-backed server info.
+    let name = this.options.name;
+    let version = this.options.version;
+    let instructions = this.options.instructions || '';
+
+    let mergedOptions = { ...this.options } as McpOptions;
+    try {
+      const serverId = this.supabaseService.getServerIdFromRequest(req);
+      if (serverId && this.options.supabase?.enabled) {
+        const db = await this.supabaseService.fetchServerById(serverId);
+        if (db && db.enabled !== false) {
+          name = db.alias_name || db.name || name;
+          version = db.serverInfoVersion || version;
+          instructions = db.instructions || instructions;
+          mergedOptions = {
+            ...mergedOptions,
+            capabilities: {
+              ...(mergedOptions.capabilities || {}),
+              ...this.supabaseService.buildServerCapabilities(db),
+            },
+          };
+        }
+      }
+    } catch (e) {
+      this.logger.warn(`Supabase server lookup skipped/failed: ${e}`);
+    }
+
     const capabilities = buildMcpCapabilities(
       this.mcpModuleId,
       this.toolRegistry,
-      this.options,
+      mergedOptions,
     );
     this.logger.debug('Built MCP capabilities:', capabilities);
 
     // Create a new MCP server for this session with dynamic capabilities
     const mcpServer = new McpServer(
-      { name: this.options.name, version: this.options.version },
-      {
-        capabilities,
-        instructions: this.options.instructions || '',
-      },
+      { name, version },
+      { capabilities, instructions },
     );
 
     // Store the transport and server for this session

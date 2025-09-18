@@ -96,6 +96,47 @@ export class GreetingTool {
 - **[External Authorization Server](docs/external-authorization-server/README.md)** - Securing your MCP server with an external authorization server (Keycloak, Auth0, etc)
 - **[Server examples](docs/server-examples.md)** - MCP servers examples (Streamable HTTP, HTTP, and STDIO) and with Fastify support
 
+## Supabase Mode (Virtual Server Config)
+
+Enable a mode where the MCP server receives an `mcp-server-id` and derives its initialize response and tools from Supabase tables documented in `SyntharaAIStudio/virtualmcpserver/docs/mcp/tables`.
+
+- Configure in `McpModule.forRoot({ supabase: { enabled: true, url: process.env.SUPABASE_URL } })` and provide `SUPABASE_ANON_KEY` or `SUPABASE_SERVICE_KEY`.
+- Request header, query, oder Pfadparameter für die Server‑ID:
+  - Header: `mcp-server-id` (configurable via `supabase.serverIdHeader`)
+  - Query: `mcpServerId` (configurable via `supabase.serverIdQueryParam`)
+  - Pfad: `/mcp/:mcpServerId` (Streamable HTTP), `/sse/:mcpServerId` und `/messages/:mcpServerId` (SSE)
+- Tables (override via `supabase.tables`):
+  - `advisori_mcp_server` → initialize: sets `serverInfo.name`, `version`, and `instructions`.
+  - `advisori_mcp_tool_config` → tools/list: reads `toolKey` and `inputSchema` filtered by `mcpServerId`.
+
+Example: tools/list registers tools like:
+
+```
+{"tools":[{"name":"send_email","inputSchema":{"type":"object","required":["to","subject","body"]}}]}
+```
+
+Fallback: If no server id is supplied or Supabase is disabled, discovery-based tools (decorators) are returned.
+
+## Tool Calls → Serverless Forwarding
+
+Bei `tools/call` mit gesetzter Server‑ID wird das Tool per Mapping in Supabase an eine Serverless‑Function weitergeleitet:
+- Mapping: `advisori_mcp_tool_connector_map` (Tool → Connector)
+- Ziel: `advisori_connector_service.base_url`
+- Transforms: `advisori_mcp_tool_transform` (direction=`request`/`response`, `is_active=true`)
+- Payload (POST):
+
+```
+{
+  "mcpToolRequest": { "name": "<toolKey>", "arguments": {…}, "inputSchema": {…} },
+  "transformRequest": "function…",
+  "transformResponse": "function… | null",
+  "customHeader": { "authorization": "…", "x-…": "…" },
+  "mcpServerId": "<uuid>"
+}
+```
+
+Antwort der Function wird an den MCP‑Client zurückgegeben. Falls kein Mapping/Transform existiert, erfolgt Fallback auf lokal registrierte (@Tool) Implementierungen.
+
 ## Playground
 
 The `playground` directory contains working examples for all features.

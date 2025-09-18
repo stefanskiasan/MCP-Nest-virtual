@@ -12,6 +12,7 @@ import { McpOptions } from '../interfaces';
 import { McpExecutorService } from './mcp-executor.service';
 import { McpRegistryService } from './mcp-registry.service';
 import { buildMcpCapabilities } from '../utils/capabilities-builder';
+import { McpSupabaseConfigService } from './mcp-supabase-config.service';
 
 @Injectable()
 export class McpStreamableHttpService implements OnModuleDestroy {
@@ -28,6 +29,7 @@ export class McpStreamableHttpService implements OnModuleDestroy {
     @Inject('MCP_MODULE_ID') private readonly mcpModuleId: string,
     private readonly moduleRef: ModuleRef,
     private readonly toolRegistry: McpRegistryService,
+    private readonly supabaseService: McpSupabaseConfigService,
   ) {
     // Determine if we're in stateless mode
     this.isStatelessMode = !!options.streamableHttp?.statelessMode;
@@ -47,22 +49,46 @@ export class McpStreamableHttpService implements OnModuleDestroy {
         this.options.streamableHttp?.enableJsonResponse || false,
     });
 
-    // Create a new MCP server instance with dynamic capabilities
+    // Build server info/capabilities (optionally from Supabase)
+    let name = this.options.name;
+    let version = this.options.version;
+    let instructions = this.options.instructions || '';
+    let mergedOptions = { ...this.options } as McpOptions;
+    try {
+      const adapter = HttpAdapterFactory.getAdapter(rawReq, undefined);
+      const req = adapter.adaptRequest(rawReq);
+      const serverId = this.supabaseService.getServerIdFromRequest(req);
+      if (serverId && this.options.supabase?.enabled) {
+        const db = await this.supabaseService.fetchServerById(serverId);
+        if (db && db.enabled !== false) {
+          name = db.alias_name || db.name || name;
+          version = db.serverInfoVersion || version;
+          instructions = db.instructions || instructions;
+          mergedOptions = {
+            ...mergedOptions,
+            capabilities: {
+              ...(mergedOptions.capabilities || {}),
+              ...this.supabaseService.buildServerCapabilities(db),
+            },
+          };
+        }
+      }
+    } catch (e) {
+      this.logger.warn(`[Stateless] Supabase server lookup skipped/failed: ${e}`);
+    }
+
     const capabilities = buildMcpCapabilities(
       this.mcpModuleId,
       this.toolRegistry,
-      this.options,
+      mergedOptions,
     );
     this.logger.debug(
       `[Stateless] Built MCP capabilities: ${JSON.stringify(capabilities)}`,
     );
 
     const server = new McpServer(
-      { name: this.options.name, version: this.options.version },
-      {
-        capabilities: capabilities,
-        instructions: this.options.instructions || '',
-      },
+      { name, version },
+      { capabilities, instructions },
     );
 
     // Connect the transport to the MCP server first

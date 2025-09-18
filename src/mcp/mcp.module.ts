@@ -16,12 +16,14 @@ import { createSseController } from './transport/sse.controller.factory';
 import { StdioService } from './transport/stdio.service';
 import { createStreamableHttpController } from './transport/streamable-http.controller.factory';
 import { normalizeEndpoint } from './utils/normalize-endpoint';
+import { McpSupabaseConfigService } from './services/mcp-supabase-config.service';
+import { McpToolForwarderService } from './services/mcp-tool-forwarder.service';
 
 let instanceIdCounter = 0;
 
 @Module({
   imports: [DiscoveryModule],
-  providers: [McpRegistryService, McpExecutorService],
+  providers: [McpRegistryService, McpExecutorService, McpSupabaseConfigService, McpToolForwarderService],
 })
 export class McpModule {
   /**
@@ -95,6 +97,7 @@ export class McpModule {
       McpSseService,
       McpStreamableHttpService,
       StdioService,
+      McpToolForwarderService,
     ];
 
     return {
@@ -247,6 +250,7 @@ export class McpModule {
       McpSseService,
       McpStreamableHttpService,
       StdioService,
+      McpToolForwarderService,
     ];
 
     return providers;

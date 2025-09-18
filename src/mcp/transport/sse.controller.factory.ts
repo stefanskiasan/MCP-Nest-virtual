@@ -62,12 +62,34 @@ export function createSseController(
       );
     }
 
+    // Variant with path parameter /:mcpServerId to pass the server id in the URL
+    @Get(normalizeEndpoint(`${apiPrefix}/${sseEndpoint}`) + '/:mcpServerId')
+    @UseGuards(...guards)
+    async sseWithServer(@Req() rawReq: any, @Res() rawRes: any) {
+      return this.mcpSseService.createSseConnection(
+        rawReq,
+        rawRes,
+        messagesEndpoint,
+        apiPrefix,
+      );
+    }
+
     /**
      * Tool execution endpoint - protected by the provided guards
      */
     @Post(normalizeEndpoint(`${apiPrefix}/${messagesEndpoint}`))
     @UseGuards(...guards)
     async messages(
+      @Req() rawReq: any,
+      @Res() rawRes: any,
+      @Body() body: unknown,
+    ): Promise<void> {
+      await this.mcpSseService.handleMessage(rawReq, rawRes, body);
+    }
+
+    @Post(normalizeEndpoint(`${apiPrefix}/${messagesEndpoint}`) + '/:mcpServerId')
+    @UseGuards(...guards)
+    async messagesWithServer(
       @Req() rawReq: any,
       @Res() rawRes: any,
       @Body() body: unknown,
