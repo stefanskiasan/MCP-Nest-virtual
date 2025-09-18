@@ -96,7 +96,7 @@ export class McpResourcesHandler extends McpHandlerBase {
               `Unknown resource: ${uri}`,
             );
           }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
           return await this.handleRequest(
             httpRequest,
             providerClass,
@@ -148,7 +148,6 @@ export class McpResourcesHandler extends McpHandlerBase {
 
     this.logger.debug(result, 'ReadResourceRequestSchema result');
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result;
   }
 }

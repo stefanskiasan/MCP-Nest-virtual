@@ -137,6 +137,10 @@ Bei `tools/call` mit gesetzter Server‑ID wird das Tool per Mapping in Supabase
 
 Antwort der Function wird an den MCP‑Client zurückgegeben. Falls kein Mapping/Transform existiert, erfolgt Fallback auf lokal registrierte (@Tool) Implementierungen.
 
+Hinweis Allowlist (Wildcard):
+- In `supabase.connectorHttp.allowlistHosts` kannst du `*` (alles erlauben) oder Wildcards nutzen (z. B. `*.example.com`, `api.*.internal`).
+- Ist die Liste leer oder nicht gesetzt, sind alle Hosts erlaubt (optional).
+
 1. ja ## Consent für statische Secrets
 
 Statt OAuth‑Flows können Kunden statische Schlüssel (z. B. Postgres‑URL, X‑API‑Key) hinterlegen. Der MCP‑Server speichert diese pro Nutzer und nutzt sie bei Tool‑Calls automatisch.

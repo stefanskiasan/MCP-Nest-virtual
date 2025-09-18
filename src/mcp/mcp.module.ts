@@ -27,7 +27,13 @@ let instanceIdCounter = 0;
 
 @Module({
   imports: [DiscoveryModule],
-  providers: [McpRegistryService, McpExecutorService, McpSupabaseConfigService, McpToolForwarderService, SecretResolverService],
+  providers: [
+    McpRegistryService,
+    McpExecutorService,
+    McpSupabaseConfigService,
+    McpToolForwarderService,
+    SecretResolverService,
+  ],
 })
 export class McpModule {
   /**
@@ -69,7 +75,12 @@ export class McpModule {
     const controllers = this.createControllersFromOptions(mergedOptions);
     return {
       module: McpModule,
-      controllers: [...controllers, McpConsentController, McpProviderConsentController, SupabaseToMcpBridgeController],
+      controllers: [
+        ...controllers,
+        McpConsentController,
+        McpProviderConsentController,
+        SupabaseToMcpBridgeController,
+      ],
       providers,
       exports: [McpRegistryService, McpSseService, McpStreamableHttpService],
     };
@@ -108,7 +119,11 @@ export class McpModule {
       module: McpModule,
       imports: options.imports ?? [],
       // No automatic transport controllers in async mode, but consent controller is added
-      controllers: [McpConsentController, McpProviderConsentController, SupabaseToMcpBridgeController],
+      controllers: [
+        McpConsentController,
+        McpProviderConsentController,
+        SupabaseToMcpBridgeController,
+      ],
       providers: [
         ...asyncProviders,
         ...baseProviders,

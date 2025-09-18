@@ -1,6 +1,16 @@
-import { Body, Controller, Header, HttpCode, Inject, Logger, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Header,
+  HttpCode,
+  Inject,
+  Logger,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { Request, Response } from 'express';
-import * as jwt from 'jsonwebtoken';
+import * as jwt from './utils/jwt-lite';
 import { JwtTokenService, TokenPair } from './services/jwt-token.service';
 import { OAuthModuleOptions } from './providers/oauth-provider.interface';
 
@@ -10,7 +20,8 @@ export class SupabaseToMcpBridgeController {
 
   constructor(
     private readonly jwtTokens: JwtTokenService,
-    @Inject('OAUTH_MODULE_OPTIONS') private readonly oauthOptions: OAuthModuleOptions,
+    @Inject('OAUTH_MODULE_OPTIONS')
+    private readonly oauthOptions: OAuthModuleOptions,
   ) {}
 
   /**
@@ -21,7 +32,11 @@ export class SupabaseToMcpBridgeController {
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
   @Header('Pragma', 'no-cache')
-  async exchange(@Req() req: Request, @Res() res: Response, @Body() body: any): Promise<void> {
+  async exchange(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Body() body: any,
+  ): Promise<void> {
     try {
       const header = req.headers['authorization'];
       const tokenFromHeader = header?.startsWith('Bearer ')
@@ -35,7 +50,9 @@ export class SupabaseToMcpBridgeController {
 
       const secret = process.env.SUPABASE_JWT_SECRET;
       if (!secret) {
-        res.status(500).json({ error: 'SUPABASE_JWT_SECRET not configured on server' });
+        res
+          .status(500)
+          .json({ error: 'SUPABASE_JWT_SECRET not configured on server' });
         return;
       }
 
@@ -61,9 +78,8 @@ export class SupabaseToMcpBridgeController {
 
       res.json(pair);
     } catch (e) {
-      this.logger.error('Supabase→MCP bridge error', e as any);
+      this.logger.error('Supabase→MCP bridge error', e);
       res.status(500).json({ error: 'BRIDGE_ERROR' });
     }
   }
 }
-

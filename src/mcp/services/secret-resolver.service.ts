@@ -11,7 +11,9 @@ export class SecretResolverService {
     @Inject('MCP_MODULE_ID') private readonly mcpModuleId: string,
   ) {}
 
-  private normalizeHeaders(headers: Record<string, any>): Record<string, string> {
+  private normalizeHeaders(
+    headers: Record<string, any>,
+  ): Record<string, string> {
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(headers || {})) {
       if (!k) continue;
@@ -21,7 +23,9 @@ export class SecretResolverService {
     return out;
   }
 
-  private async resolveSecretIdToValue(secretId: string | undefined): Promise<string | null> {
+  private async resolveSecretIdToValue(
+    secretId: string | undefined,
+  ): Promise<string | null> {
     if (!secretId) return null;
     try {
       const val = await this.supa.fetchSecretValueById(secretId);
@@ -32,7 +36,10 @@ export class SecretResolverService {
     }
   }
 
-  private extractDirectSecretHeaders(raw: Record<string, string>): { values: Record<string, string>; ids: Array<{ header: string; id: string }> } {
+  private extractDirectSecretHeaders(raw: Record<string, string>): {
+    values: Record<string, string>;
+    ids: Array<{ header: string; id: string }>;
+  } {
     const values: Record<string, string> = {};
     const ids: Array<{ header: string; id: string }> = [];
     for (const [name, value] of Object.entries(raw)) {
@@ -77,12 +84,16 @@ export class SecretResolverService {
     const out: Record<string, string> = {};
 
     // 1) Direct headers
-    const { values: directVals, ids: directIds } = this.extractDirectSecretHeaders(baseHeaders);
+    const { values: directVals, ids: directIds } =
+      this.extractDirectSecretHeaders(baseHeaders);
     Object.assign(out, directVals);
     for (const { header, id } of directIds) {
       const val = await this.resolveSecretIdToValue(id);
       if (val) {
-        if (header.toLowerCase() === 'authorization' && !/^bearer\s/i.test(val)) {
+        if (
+          header.toLowerCase() === 'authorization' &&
+          !/^bearer\s/i.test(val)
+        ) {
           out['Authorization'] = `Bearer ${val}`;
         } else {
           out[header] = val;
@@ -97,9 +108,15 @@ export class SecretResolverService {
     try {
       const userId = this.getUserIdFromRequest(httpRequest);
       if (userId) {
-        const bindings = await this.supa.fetchUserSecretBindings(userId, serverId, connectorId);
+        const bindings = await this.supa.fetchUserSecretBindings(
+          userId,
+          serverId,
+          connectorId,
+        );
         if (bindings.length) {
-          const ids: string[] = bindings.map((b) => b.secret_id).filter(Boolean) as string[];
+          const ids: string[] = bindings
+            .map((b) => b.secret_id)
+            .filter(Boolean);
           const values = await this.supa.fetchSecretValuesByIds(ids);
           for (const b of bindings) {
             const val = values[b.secret_id] || null;
@@ -119,9 +136,14 @@ export class SecretResolverService {
 
     // 4) Apply tool-level rules (managed_by/allow_override/admin_secret_id)
     try {
-      const refs = await this.supa.listRequiredSecretRefsForTool(toolId, connectorId);
+      const refs = await this.supa.listRequiredSecretRefsForTool(
+        toolId,
+        connectorId,
+      );
       // Batch fetch admin secret values
-      const adminIds = refs.map(r => r.admin_secret_id).filter((x): x is string => !!x);
+      const adminIds = refs
+        .map((r) => r.admin_secret_id)
+        .filter((x): x is string => !!x);
       const adminValues = await this.supa.fetchSecretValuesByIds(adminIds);
 
       for (const r of refs) {
@@ -129,7 +151,8 @@ export class SecretResolverService {
         const allowOverride = !!r.allow_override;
 
         // Determine header name to set
-        const headerName = r.ref_kind === 'header_id' ? r.ref_key : `X-Secret-Ref-${r.ref_key}`;
+        const headerName =
+          r.ref_kind === 'header_id' ? r.ref_key : `X-Secret-Ref-${r.ref_key}`;
 
         // Candidates
         const directVal = out[headerName] ?? directVals[r.ref_key] ?? undefined;
@@ -137,13 +160,17 @@ export class SecretResolverService {
         // Try user binding aftermath (we already filled out with header names)
         if (headerName in out) userVal = out[headerName];
 
-        const adminVal = r.admin_secret_id ? (adminValues[r.admin_secret_id] ?? null) : null;
+        const adminVal = r.admin_secret_id
+          ? (adminValues[r.admin_secret_id] ?? null)
+          : null;
 
         const choose = () => {
           if (kind === 'ADMIN') {
-            if (allowOverride && (directVal || userVal)) return directVal || userVal!;
+            if (allowOverride && (directVal || userVal))
+              return directVal || userVal!;
             if (adminVal) return adminVal;
-            if (r.required) throw new Error(`MISSING_ADMIN_SECRET:${r.ref_key}`);
+            if (r.required)
+              throw new Error(`MISSING_ADMIN_SECRET:${r.ref_key}`);
             return undefined;
           }
           if (kind === 'USER') {
@@ -163,7 +190,10 @@ export class SecretResolverService {
         const chosen = choose();
         if (chosen !== undefined) {
           // Authorization convenience: add Bearer if missing
-          if (headerName.toLowerCase() === 'authorization' && !/^bearer\s/i.test(chosen)) {
+          if (
+            headerName.toLowerCase() === 'authorization' &&
+            !/^bearer\s/i.test(chosen)
+          ) {
             out['Authorization'] = `Bearer ${chosen}`;
           } else {
             out[headerName] = chosen;

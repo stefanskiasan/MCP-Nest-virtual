@@ -32,10 +32,31 @@ export class McpToolForwarderService {
     try {
       const u = new URL(urlStr);
       const allow = this.options.supabase?.connectorHttp?.allowlistHosts;
-      if (Array.isArray(allow) && allow.length > 0) {
-        if (!allow.includes(u.hostname)) {
-          throw new Error(`Connector host not allowlisted: ${u.hostname}`);
-        }
+      // If no allowlist provided, allow all (optional feature)
+      if (!Array.isArray(allow) || allow.length === 0) return;
+
+      // Wildcard support: '*' allows all; patterns like '*.domain.com' allowed
+      if (allow.includes('*')) return;
+
+      const host = u.hostname; // e.g., api.example.com
+      const hostWithPort = u.host; // e.g., api.example.com:8443
+
+      const matches = (value: string, pattern: string) => {
+        if (pattern === '*') return true;
+        if (pattern === value) return true;
+        // convert wildcard to regex
+        const escaped = pattern
+          .replace(/[.+^${}()|\[\]\\]/g, '\\$&')
+          .replace(/\*/g, '.*');
+        const re = new RegExp(`^${escaped}$`, 'i');
+        return re.test(value);
+      };
+
+      const allowed = allow.some(
+        (pat) => matches(host, pat) || matches(hostWithPort, pat),
+      );
+      if (!allowed) {
+        throw new Error(`Connector host not allowlisted: ${host}`);
       }
     } catch (e) {
       throw new Error(`Invalid connector base_url: ${urlStr}`);
@@ -45,7 +66,8 @@ export class McpToolForwarderService {
   private async postJson(url: string, body: any): Promise<any> {
     const timeoutMs = this.options.supabase?.connectorHttp?.timeoutMs ?? 15000;
     const attempts = this.options.supabase?.connectorHttp?.retry?.attempts ?? 1;
-    const backoffMs = this.options.supabase?.connectorHttp?.retry?.backoffMs ?? 0;
+    const backoffMs =
+      this.options.supabase?.connectorHttp?.retry?.backoffMs ?? 0;
 
     const fetchFn: any = (globalThis as any).fetch;
     if (!fetchFn) throw new Error('global fetch is not available');
@@ -69,7 +91,8 @@ export class McpToolForwarderService {
         return await res.json();
       } catch (e) {
         lastErr = e;
-        if (i < attempts - 1 && backoffMs > 0) await new Promise(r => setTimeout(r, backoffMs));
+        if (i < attempts - 1 && backoffMs > 0)
+          await new Promise((r) => setTimeout(r, backoffMs));
       }
     }
     throw lastErr || new Error('Connector request failed');
@@ -90,19 +113,32 @@ export class McpToolForwarderService {
     if (!map || map.enabled === false) throw new Error('CONNECTOR_NOT_MAPPED');
 
     const connector = await this.supa.fetchConnectorService(map.connector_id);
-    if (!connector || connector.enabled === false) throw new Error('CONNECTOR_DISABLED_OR_MISSING');
+    if (!connector || connector.enabled === false)
+      throw new Error('CONNECTOR_DISABLED_OR_MISSING');
     if (!connector.base_url) throw new Error('CONNECTOR_BASE_URL_MISSING');
     this.ensureAllowedUrl(connector.base_url);
 
     // 3) Active transforms
-    const transformRequest = await this.supa.fetchActiveTransform(tool.id, 'request');
-    const transformResponse = await this.supa.fetchActiveTransform(tool.id, 'response');
+    const transformRequest = await this.supa.fetchActiveTransform(
+      tool.id,
+      'request',
+    );
+    const transformResponse = await this.supa.fetchActiveTransform(
+      tool.id,
+      'response',
+    );
     if (!transformRequest) throw new Error('TRANSFORM_REQUEST_MISSING');
 
     // 4) Headers from request + resolved secrets (direct, user bindings)
     const customHeader = {
       ...this.pickForwardableHeaders(httpRequest),
-      ...(await this.secrets.resolve(httpRequest, serverId, connector?.id, tool.id, args)),
+      ...(await this.secrets.resolve(
+        httpRequest,
+        serverId,
+        connector?.id,
+        tool.id,
+        args,
+      )),
     };
 
     // 5) Build forward payload

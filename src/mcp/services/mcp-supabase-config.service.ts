@@ -34,9 +34,7 @@ export class McpSupabaseConfigService {
   }
 
   private get supabaseUrl(): string | undefined {
-    return (
-      this.options.supabase?.url || process.env.SUPABASE_URL || undefined
-    );
+    return this.options.supabase?.url || process.env.SUPABASE_URL || undefined;
   }
 
   private get supabaseKey(): string | undefined {
@@ -54,9 +52,7 @@ export class McpSupabaseConfigService {
   }
 
   private get serverTable(): string {
-    return (
-      this.options.supabase?.tables?.server || 'advisori_mcp_server'
-    );
+    return this.options.supabase?.tables?.server || 'advisori_mcp_server';
   }
 
   private get toolTable(): string {
@@ -67,40 +63,55 @@ export class McpSupabaseConfigService {
 
   private get toolConnectorMapTable(): string {
     return (
-      this.options.supabase?.tables?.toolConnectorMap || 'advisori_mcp_tool_connector_map'
+      this.options.supabase?.tables?.toolConnectorMap ||
+      'advisori_mcp_tool_connector_map'
     );
   }
 
   private get toolTransformTable(): string {
     return (
-      this.options.supabase?.tables?.toolTransform || 'advisori_mcp_tool_transform'
+      this.options.supabase?.tables?.toolTransform ||
+      'advisori_mcp_tool_transform'
     );
   }
 
   private get connectorServiceTable(): string {
     return (
-      this.options.supabase?.tables?.connectorService || 'advisori_connector_service'
+      this.options.supabase?.tables?.connectorService ||
+      'advisori_connector_service'
     );
   }
 
-  getServerIdFromRequest(req: { headers: Record<string, any>; query: any; params?: Record<string, any> }): string | undefined {
+  getServerIdFromRequest(req: {
+    headers: Record<string, any>;
+    query: any;
+    params?: Record<string, any>;
+  }): string | undefined {
     if (!req) return undefined;
     const headerName = this.options.supabase?.serverIdHeader || 'mcp-server-id';
-    const queryName = this.options.supabase?.serverIdQueryParam || 'mcpServerId';
-    const headerVal = (req.headers?.[headerName] || req.headers?.[headerName.toLowerCase()]) as string | undefined;
-    const queryVal = (req.query?.[queryName]) as string | undefined;
-    const paramVal = (req.params?.[queryName] || req.params?.['mcpServerId']) as string | undefined;
+    const queryName =
+      this.options.supabase?.serverIdQueryParam || 'mcpServerId';
+    const headerVal = (req.headers?.[headerName] ||
+      req.headers?.[headerName.toLowerCase()]) as string | undefined;
+    const queryVal = req.query?.[queryName] as string | undefined;
+    const paramVal = (req.params?.[queryName] ||
+      req.params?.['mcpServerId']) as string | undefined;
     return (headerVal || paramVal || queryVal)?.toString();
   }
 
   private ensureConfigReady(): void {
     if (!this.supabaseEnabled) return;
     if (!this.supabaseUrl || !this.supabaseKey) {
-      throw new Error('Supabase mode enabled but SUPABASE_URL or key is missing');
+      throw new Error(
+        'Supabase mode enabled but SUPABASE_URL or key is missing',
+      );
     }
   }
 
-  private async rest<T = any>(path: string, params?: Record<string, string>): Promise<T> {
+  private async rest<T = any>(
+    path: string,
+    params?: Record<string, string>,
+  ): Promise<T> {
     this.ensureConfigReady();
     const url = new URL(`${this.supabaseUrl}/rest/v1/${path}`);
     if (params) {
@@ -146,7 +157,10 @@ export class McpSupabaseConfigService {
     return rows || [];
   }
 
-  async fetchToolByName(serverId: string, name: string): Promise<ToolRow | undefined> {
+  async fetchToolByName(
+    serverId: string,
+    name: string,
+  ): Promise<ToolRow | undefined> {
     if (!this.supabaseEnabled) return undefined;
     const rows = await this.rest<ToolRow[]>(`${this.toolTable}`, {
       select: 'id,mcpServerId,toolKey,alias_name,description,inputSchema',
@@ -157,7 +171,9 @@ export class McpSupabaseConfigService {
     return rows?.[0];
   }
 
-  async fetchConnectorMapping(toolId: string): Promise<{ connector_id: string; enabled: boolean } | undefined> {
+  async fetchConnectorMapping(
+    toolId: string,
+  ): Promise<{ connector_id: string; enabled: boolean } | undefined> {
     if (!this.supabaseEnabled) return undefined;
     const rows = await this.rest<any[]>(`${this.toolConnectorMapTable}`, {
       select: 'connector_id,enabled',
@@ -167,7 +183,12 @@ export class McpSupabaseConfigService {
     return rows?.[0];
   }
 
-  async fetchConnectorService(connectorId: string): Promise<{ id: string; base_url: string; type?: string; enabled?: boolean } | undefined> {
+  async fetchConnectorService(
+    connectorId: string,
+  ): Promise<
+    | { id: string; base_url: string; type?: string; enabled?: boolean }
+    | undefined
+  > {
     if (!this.supabaseEnabled) return undefined;
     const rows = await this.rest<any[]>(`${this.connectorServiceTable}`, {
       select: 'id,base_url,type,enabled',
@@ -177,7 +198,10 @@ export class McpSupabaseConfigService {
     return rows?.[0];
   }
 
-  async fetchActiveTransform(toolId: string, direction: 'request' | 'response'): Promise<string | undefined> {
+  async fetchActiveTransform(
+    toolId: string,
+    direction: 'request' | 'response',
+  ): Promise<string | undefined> {
     if (!this.supabaseEnabled) return undefined;
     const rows = await this.rest<any[]>(`${this.toolTransformTable}`, {
       select: 'code,is_active',
@@ -202,7 +226,9 @@ export class McpSupabaseConfigService {
     return (row && (row.value as string)) || null;
   }
 
-  async fetchSecretValuesByIds(ids: string[]): Promise<Record<string, string | null>> {
+  async fetchSecretValuesByIds(
+    ids: string[],
+  ): Promise<Record<string, string | null>> {
     const out: Record<string, string | null> = {};
     const unique = Array.from(new Set(ids.filter(Boolean)));
     if (!this.supabaseEnabled || unique.length === 0) return out;
@@ -220,11 +246,24 @@ export class McpSupabaseConfigService {
     userId: string,
     serverId?: string,
     connectorId?: string,
-  ): Promise<Array<{ id: string; user_id: string; server_id: string | null; connector_id: string | null; ref_kind: string; ref_key: string; secret_id: string; active: boolean }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      user_id: string;
+      server_id: string | null;
+      connector_id: string | null;
+      ref_kind: string;
+      ref_key: string;
+      secret_id: string;
+      active: boolean;
+    }>
+  > {
     if (!this.supabaseEnabled) return [];
-    const eq = (k: string, v: string | undefined) => (v ? { [k]: `eq.${v}` } : {});
+    const eq = (k: string, v: string | undefined) =>
+      v ? { [k]: `eq.${v}` } : {};
     const rows = await this.rest<any[]>(`advisori_mcp_user_secret_binding`, {
-      select: 'id,user_id,server_id,connector_id,ref_kind,ref_key,secret_id,active',
+      select:
+        'id,user_id,server_id,connector_id,ref_kind,ref_key,secret_id,active',
       ...eq('user_id', userId),
       ...eq('server_id', serverId),
       ...eq('connector_id', connectorId),
@@ -237,33 +276,82 @@ export class McpSupabaseConfigService {
   async listRequiredSecretRefs(
     serverId?: string,
     connectorId?: string,
-  ): Promise<Array<{ id: string; ref_kind: string; ref_key: string; required: boolean; managed_by?: string; allow_override?: boolean; admin_secret_id?: string | null; ui_label?: string | null; ui_hint?: string | null }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      ref_kind: string;
+      ref_key: string;
+      required: boolean;
+      managed_by?: string;
+      allow_override?: boolean;
+      admin_secret_id?: string | null;
+      ui_label?: string | null;
+      ui_hint?: string | null;
+    }>
+  > {
     if (!this.supabaseEnabled) return [];
-    const params: Record<string, string> = { select: 'id,ref_kind,ref_key,required,managed_by,allow_override,admin_secret_id,ui_label,ui_hint' };
+    const params: Record<string, string> = {
+      select:
+        'id,ref_kind,ref_key,required,managed_by,allow_override,admin_secret_id,ui_label,ui_hint',
+    };
     if (serverId) params['server_id'] = `eq.${serverId}`;
     if (connectorId) params['connector_id'] = `eq.${connectorId}`;
-    const rows = await this.rest<any[]>(`advisori_mcp_required_secret_ref`, params).catch(() => []);
+    const rows = await this.rest<any[]>(
+      `advisori_mcp_required_secret_ref`,
+      params,
+    ).catch(() => []);
     return rows || [];
   }
 
   async listRequiredSecretRefsForTool(
     toolId: string,
     connectorId?: string,
-  ): Promise<Array<{ id: string; ref_kind: string; ref_key: string; required: boolean; managed_by?: string; allow_override?: boolean; admin_secret_id?: string | null; ui_label?: string | null; ui_hint?: string | null }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      ref_kind: string;
+      ref_key: string;
+      required: boolean;
+      managed_by?: string;
+      allow_override?: boolean;
+      admin_secret_id?: string | null;
+      ui_label?: string | null;
+      ui_hint?: string | null;
+    }>
+  > {
     if (!this.supabaseEnabled) return [];
-    const paramsTool: Record<string, string> = { select: 'id,ref_kind,ref_key,required,managed_by,allow_override,admin_secret_id,ui_label,ui_hint', tool_id: `eq.${toolId}` };
-    const toolRefs = await this.rest<any[]>(`advisori_mcp_required_secret_ref`, paramsTool).catch(() => []);
+    const paramsTool: Record<string, string> = {
+      select:
+        'id,ref_kind,ref_key,required,managed_by,allow_override,admin_secret_id,ui_label,ui_hint',
+      tool_id: `eq.${toolId}`,
+    };
+    const toolRefs = await this.rest<any[]>(
+      `advisori_mcp_required_secret_ref`,
+      paramsTool,
+    ).catch(() => []);
     if (!connectorId) return toolRefs || [];
-    const paramsConn: Record<string, string> = { select: 'id,ref_kind,ref_key,required,managed_by,allow_override,admin_secret_id,ui_label,ui_hint', connector_id: `eq.${connectorId}` };
-    const connRefs = await this.rest<any[]>(`advisori_mcp_required_secret_ref`, paramsConn).catch(() => []);
-    return [ ...(toolRefs || []), ...(connRefs || []) ];
+    const paramsConn: Record<string, string> = {
+      select:
+        'id,ref_kind,ref_key,required,managed_by,allow_override,admin_secret_id,ui_label,ui_hint',
+      connector_id: `eq.${connectorId}`,
+    };
+    const connRefs = await this.rest<any[]>(
+      `advisori_mcp_required_secret_ref`,
+      paramsConn,
+    ).catch(() => []);
+    return [...(toolRefs || []), ...(connRefs || [])];
   }
 
-  private async restMutate<T = any>(path: string, body: any, method: 'POST' | 'PATCH'): Promise<T> {
+  private async restMutate<T = any>(
+    path: string,
+    body: any,
+    method: 'POST' | 'PATCH',
+  ): Promise<T> {
     this.ensureConfigReady();
     const url = new URL(`${this.supabaseUrl}/rest/v1/${path}`);
     const fetchFn: any = (globalThis as any).fetch;
-    if (!fetchFn) throw new Error('global fetch is not available in this runtime');
+    if (!fetchFn)
+      throw new Error('global fetch is not available in this runtime');
     const res = await fetchFn(url.toString(), {
       method,
       headers: {
@@ -283,27 +371,53 @@ export class McpSupabaseConfigService {
     return (await res.json()) as T;
   }
 
-  async ensureSecret(value: string, name?: string, owner_user_id?: string): Promise<string> {
-    const rows = await this.restMutate<any[]>(`advisori_secretmanager`, [{ value, ...(name ? { name } : {}), ...(owner_user_id ? { owner_user_id } : {}) }], 'POST');
+  async ensureSecret(
+    value: string,
+    name?: string,
+    owner_user_id?: string,
+  ): Promise<string> {
+    const rows = await this.restMutate<any[]>(
+      `advisori_secretmanager`,
+      [
+        {
+          value,
+          ...(name ? { name } : {}),
+          ...(owner_user_id ? { owner_user_id } : {}),
+        },
+      ],
+      'POST',
+    );
     const row = rows?.[0];
     if (!row?.id) throw new Error('Failed to insert secret');
     return row.id as string;
   }
 
-  async upsertUserBinding(payload: { user_id: string; server_id?: string | null; connector_id?: string | null; ref_kind: string; ref_key: string; secret_id: string; active?: boolean }): Promise<void> {
+  async upsertUserBinding(payload: {
+    user_id: string;
+    server_id?: string | null;
+    connector_id?: string | null;
+    ref_kind: string;
+    ref_key: string;
+    secret_id: string;
+    active?: boolean;
+  }): Promise<void> {
     const urlPath = `advisori_mcp_user_secret_binding?on_conflict=user_id,server_id,connector_id,ref_kind,ref_key`;
-    await this.restMutate<any[]>(urlPath, [
-      {
-        user_id: payload.user_id,
-        server_id: payload.server_id ?? null,
-        connector_id: payload.connector_id ?? null,
-        ref_kind: payload.ref_kind,
-        ref_key: payload.ref_key,
-        secret_id: payload.secret_id,
-        active: payload.active ?? true,
-        updated_at: new Date().toISOString(),
-      },
-    ], 'POST');
+    await this.restMutate<any[]>(
+      urlPath,
+      [
+        {
+          user_id: payload.user_id,
+          server_id: payload.server_id ?? null,
+          connector_id: payload.connector_id ?? null,
+          ref_kind: payload.ref_kind,
+          ref_key: payload.ref_key,
+          secret_id: payload.secret_id,
+          active: payload.active ?? true,
+          updated_at: new Date().toISOString(),
+        },
+      ],
+      'POST',
+    );
   }
 
   // --- Provider catalog & auth profile helpers ---
@@ -334,7 +448,9 @@ export class McpSupabaseConfigService {
       extra_token_params?: Record<string, any> | null;
     },
   ): Promise<string> {
-    const profName = fields.name || `${providerKey}:${flowType}:server:${serverId.substring(0, 8)}`;
+    const profName =
+      fields.name ||
+      `${providerKey}:${flowType}:server:${serverId.substring(0, 8)}`;
     const type =
       flowType === 'oauth2_pkce'
         ? 'OAUTH2_AUTH_CODE_PKCE'
@@ -403,7 +519,9 @@ export class McpSupabaseConfigService {
       extra_token_params?: Record<string, any> | null;
     },
   ): Promise<string> {
-    const profName = fields.name || `${providerKey}:${flowType}:tool:${toolId.substring(0, 8)}`;
+    const profName =
+      fields.name ||
+      `${providerKey}:${flowType}:tool:${toolId.substring(0, 8)}`;
     const type =
       flowType === 'oauth2_pkce'
         ? 'OAUTH2_AUTH_CODE_PKCE'
@@ -461,7 +579,7 @@ export class McpSupabaseConfigService {
    */
   buildServerCapabilities(db: ServerRow | undefined): Record<string, any> {
     if (!db) return {};
-    const caps = (db.capabilities || {}) as Record<string, any>;
+    const caps = db.capabilities || {};
     const out: Record<string, any> = {};
     // We only map the MCP capabilities we understand here; others are ignored.
     // Always allow tools list when in virtual mode; client will call tools/list.

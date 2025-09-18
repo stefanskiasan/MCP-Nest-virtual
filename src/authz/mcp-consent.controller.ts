@@ -77,9 +77,13 @@ export class McpConsentController {
       refs = await this.supa.listRequiredSecretRefs(serverId, connectorId);
     }
 
-    let bindings: Record<string, boolean> = {};
+    const bindings: Record<string, boolean> = {};
     if (user_id) {
-      const rows = await this.supa.fetchUserSecretBindings(user_id, serverId, connectorId);
+      const rows = await this.supa.fetchUserSecretBindings(
+        user_id,
+        serverId,
+        connectorId,
+      );
       for (const b of rows) {
         const key = `${b.ref_kind}:${b.ref_key}`;
         bindings[key] = true;
@@ -96,7 +100,9 @@ export class McpConsentController {
       ui_hint: r.ui_hint || null,
       hasAdminDefault: !!r.admin_secret_id,
       hasUserBinding: !!bindings[`${r.ref_kind}:${r.ref_key}`],
-      editable: (r.managed_by || 'USER').toUpperCase() !== 'ADMIN' || !!r.allow_override,
+      editable:
+        (r.managed_by || 'USER').toUpperCase() !== 'ADMIN' ||
+        !!r.allow_override,
     }));
 
     res!.json({ serverId, connectorId, toolId, fields });
@@ -109,13 +115,15 @@ export class McpConsentController {
     const returnUrl = body.returnUrl || '/';
 
     // items posted as items[ref_kind:ref_key] = value
-    const items: Array<{ ref_kind: string; ref_key: string; value: string }> = [];
+    const items: Array<{ ref_kind: string; ref_key: string; value: string }> =
+      [];
     const rawItems = body.items || {};
     if (typeof rawItems === 'object') {
       for (const [k, v] of Object.entries(rawItems)) {
         if (!v) continue;
         const [ref_kind, ref_key] = String(k).split(':');
-        if (ref_kind && ref_key) items.push({ ref_kind, ref_key, value: String(v) });
+        if (ref_kind && ref_key)
+          items.push({ ref_kind, ref_key, value: String(v) });
       }
     }
 
@@ -129,7 +137,11 @@ export class McpConsentController {
 
     // store secrets and bindings
     for (const it of items) {
-      const secretId = await this.supa.ensureSecret(it.value, undefined, user_id);
+      const secretId = await this.supa.ensureSecret(
+        it.value,
+        undefined,
+        user_id,
+      );
       await this.supa.upsertUserBinding({
         user_id,
         server_id,

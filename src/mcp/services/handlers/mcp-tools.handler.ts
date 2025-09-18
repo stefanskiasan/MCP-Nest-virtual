@@ -130,7 +130,10 @@ export class McpToolsHandler extends McpHandlerBase {
         );
         const serverId = supabase.getServerIdFromRequest(httpRequest);
         if (serverId) {
-          const toolRow = await supabase.fetchToolByName(serverId, request.params.name);
+          const toolRow = await supabase.fetchToolByName(
+            serverId,
+            request.params.name,
+          );
           if (toolRow) {
             try {
               const forwarder = await this.moduleRef.resolve(
@@ -216,7 +219,6 @@ export class McpToolsHandler extends McpHandlerBase {
 
           this.logger.debug(transformedResult, 'CallToolRequestSchema result');
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return transformedResult;
         } catch (error) {
           this.logger.error(error);

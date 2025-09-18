@@ -87,7 +87,9 @@ export function createSseController(
       await this.mcpSseService.handleMessage(rawReq, rawRes, body);
     }
 
-    @Post(normalizeEndpoint(`${apiPrefix}/${messagesEndpoint}`) + '/:mcpServerId')
+    @Post(
+      normalizeEndpoint(`${apiPrefix}/${messagesEndpoint}`) + '/:mcpServerId',
+    )
     @UseGuards(...guards)
     async messagesWithServer(
       @Req() rawReq: any,

@@ -74,7 +74,9 @@ export class McpStreamableHttpService implements OnModuleDestroy {
         }
       }
     } catch (e) {
-      this.logger.warn(`[Stateless] Supabase server lookup skipped/failed: ${e}`);
+      this.logger.warn(
+        `[Stateless] Supabase server lookup skipped/failed: ${e}`,
+      );
     }
 
     const capabilities = buildMcpCapabilities(

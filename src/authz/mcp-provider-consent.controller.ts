@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Inject, Logger, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Logger,
+  Param,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { McpAuthJwtGuard } from './guards/jwt-auth.guard';
 import { McpSupabaseConfigService } from '../mcp/services/mcp-supabase-config.service';
@@ -25,7 +36,9 @@ export class McpProviderConsentController {
   ) {
     const cat = await this.supa.fetchProviderCatalog(provider);
     const flow = mode || cat?.flow_type || 'oauth2_pkce';
-    const fields: Array<any> = Array.isArray(cat?.form_schema) ? cat.form_schema : [];
+    const fields: Array<any> = Array.isArray(cat?.form_schema)
+      ? cat.form_schema
+      : [];
     const title = `Connect Provider: ${provider}`;
     const action = `${this.routePrefix()}/remote-auth/provider/${provider}/submit`;
 
@@ -33,7 +46,9 @@ export class McpProviderConsentController {
       .map((f) => {
         const type = f.type === 'secret' ? 'password' : 'text';
         const req = f.required ? 'required' : '';
-        const hint = f.hint ? `<div style=\"color:#666;font-size:12px\">${f.hint}</div>` : '';
+        const hint = f.hint
+          ? `<div style=\"color:#666;font-size:12px\">${f.hint}</div>`
+          : '';
         return `
         <label style=\"display:block;margin:8px 0;\">\n          <span>${f.label || f.key}${f.required ? ' *' : ''}</span>\n          <input type=\"${type}\" name=\"fields[${f.key}]\" style=\"width:100%\" ${req} />\n          ${hint}\n        </label>`;
       })
@@ -107,7 +122,7 @@ export class McpProviderConsentController {
     };
 
     if (toolId) {
-      await this.supa.upsertAuthProfileForTool(toolId, provider, mode as any, {
+      await this.supa.upsertAuthProfileForTool(toolId, provider, mode, {
         authorize_url: apply(authUrlTpl),
         token_url: apply(tokenUrlTpl),
         client_id,
@@ -117,7 +132,7 @@ export class McpProviderConsentController {
         token_prefix: 'Bearer',
       });
     } else if (serverId) {
-      await this.supa.upsertAuthProfileForServer(serverId, provider, mode as any, {
+      await this.supa.upsertAuthProfileForServer(serverId, provider, mode, {
         authorize_url: apply(authUrlTpl),
         token_url: apply(tokenUrlTpl),
         client_id,
@@ -162,27 +177,39 @@ export class McpProviderConsentController {
 
     let profileId: string | null = null;
     if (toolId) {
-      profileId = await this.supa.upsertAuthProfileForTool(toolId, provider, mode as any, {
-        authorize_url: apply(cat.authorize_url_template || null),
-        token_url: apply(cat.token_url_template || null),
-        client_id,
-        client_secret,
-        scopes,
-        header_name: 'Authorization',
-        token_prefix: 'Bearer',
-      });
+      profileId = await this.supa.upsertAuthProfileForTool(
+        toolId,
+        provider,
+        mode,
+        {
+          authorize_url: apply(cat.authorize_url_template || null),
+          token_url: apply(cat.token_url_template || null),
+          client_id,
+          client_secret,
+          scopes,
+          header_name: 'Authorization',
+          token_prefix: 'Bearer',
+        },
+      );
     } else if (serverId) {
-      profileId = await this.supa.upsertAuthProfileForServer(serverId, provider, mode as any, {
-        authorize_url: apply(cat.authorize_url_template || null),
-        token_url: apply(cat.token_url_template || null),
-        client_id,
-        client_secret,
-        scopes,
-        header_name: 'Authorization',
-        token_prefix: 'Bearer',
-      });
+      profileId = await this.supa.upsertAuthProfileForServer(
+        serverId,
+        provider,
+        mode,
+        {
+          authorize_url: apply(cat.authorize_url_template || null),
+          token_url: apply(cat.token_url_template || null),
+          client_id,
+          client_secret,
+          scopes,
+          header_name: 'Authorization',
+          token_prefix: 'Bearer',
+        },
+      );
     } else {
-      res.status(400).json({ error: 'MISSING_SCOPE_TARGET (serverId or toolId)' });
+      res
+        .status(400)
+        .json({ error: 'MISSING_SCOPE_TARGET (serverId or toolId)' });
       return;
     }
 
@@ -192,7 +219,6 @@ export class McpProviderConsentController {
   private routePrefix(): string {
     return this.options.apiPrefix ? `/${this.options.apiPrefix}` : '';
   }
-}
   @Get(':provider/preview')
   async previewProvider(
     @Param('provider') provider: string,
@@ -214,3 +240,4 @@ export class McpProviderConsentController {
       active: cat.active,
     });
   }
+}

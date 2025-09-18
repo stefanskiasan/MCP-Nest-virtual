@@ -77,7 +77,7 @@ export abstract class McpHandlerBase {
       this.logger.warn(`Stateless context: '${fn}' is not supported.`);
     };
     return {
-      // eslint-disable-next-line @typescript-eslint/require-await,@typescript-eslint/no-unused-vars
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       reportProgress: async (_progress: Progress) => {
         warn('reportProgress not supported in stateless');
       },
