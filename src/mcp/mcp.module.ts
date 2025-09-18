@@ -20,6 +20,8 @@ import { McpSupabaseConfigService } from './services/mcp-supabase-config.service
 import { McpToolForwarderService } from './services/mcp-tool-forwarder.service';
 import { SecretResolverService } from './services/secret-resolver.service';
 import { McpConsentController } from '../authz/mcp-consent.controller';
+import { McpProviderConsentController } from '../authz/mcp-provider-consent.controller';
+import { SupabaseToMcpBridgeController } from '../authz/mcp-supabase-bridge.controller';
 
 let instanceIdCounter = 0;
 
@@ -67,7 +69,7 @@ export class McpModule {
     const controllers = this.createControllersFromOptions(mergedOptions);
     return {
       module: McpModule,
-      controllers: [...controllers, McpConsentController],
+      controllers: [...controllers, McpConsentController, McpProviderConsentController, SupabaseToMcpBridgeController],
       providers,
       exports: [McpRegistryService, McpSseService, McpStreamableHttpService],
     };
@@ -106,7 +108,7 @@ export class McpModule {
       module: McpModule,
       imports: options.imports ?? [],
       // No automatic transport controllers in async mode, but consent controller is added
-      controllers: [McpConsentController],
+      controllers: [McpConsentController, McpProviderConsentController, SupabaseToMcpBridgeController],
       providers: [
         ...asyncProviders,
         ...baseProviders,

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtPayload, JwtTokenService } from '../services/jwt-token.service';
+import { OAuthModuleOptions } from '../providers/oauth-provider.interface';
 import { IOAuthStore } from '../stores/oauth-store.interface';
 
 export interface AuthenticatedRequest extends Request {
@@ -18,6 +19,7 @@ export class McpAuthJwtGuard implements CanActivate {
   constructor(
     private readonly jwtTokenService: JwtTokenService,
     @Inject('IOAuthStore') private readonly store: IOAuthStore,
+    @Inject('OAUTH_MODULE_OPTIONS') private readonly oauthOptions: OAuthModuleOptions,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -32,6 +34,22 @@ export class McpAuthJwtGuard implements CanActivate {
 
     if (!payload) {
       throw new UnauthorizedException('Invalid or expired access token');
+    }
+
+    // Enforce audience/resource
+    // Support multiple allowed resources via config string (comma/space) or env OAUTH_ALLOWED_RESOURCES
+    const configured = (this.oauthOptions.resource || '').split(/[,\s]+/).filter(Boolean);
+    const envList = (process.env.OAUTH_ALLOWED_RESOURCES || '').split(/[,\s]+/).filter(Boolean);
+    const allowed = (configured.length ? configured : [this.oauthOptions.resource]).concat(envList).filter(Boolean);
+
+    const aud = (payload as any).aud; // string or string[]
+    const resClaim = (payload as any).resource; // string
+    const matchAny = (val: string | undefined, list: string[]) => !!val && list.some((r) => r === val);
+    const audOk = Array.isArray(aud) ? aud.some((a) => matchAny(a, allowed)) : matchAny(aud, allowed);
+    const resOk = matchAny(resClaim, allowed);
+
+    if (!(audOk && resOk)) {
+      throw new UnauthorizedException('Invalid audience/resource for this MCP server');
     }
 
     // Enrich request.user with friendly fields for tools

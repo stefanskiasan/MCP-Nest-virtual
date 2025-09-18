@@ -306,6 +306,155 @@ export class McpSupabaseConfigService {
     ], 'POST');
   }
 
+  // --- Provider catalog & auth profile helpers ---
+  async fetchProviderCatalog(providerKey: string): Promise<any | null> {
+    if (!this.supabaseEnabled) return null;
+    const rows = await this.rest<any[]>(`auth_provider_catalog`, {
+      select: '*',
+      provider_key: `eq.${providerKey}`,
+      limit: '1',
+    }).catch(() => []);
+    return rows?.[0] || null;
+  }
+
+  async upsertAuthProfileForServer(
+    serverId: string,
+    providerKey: string,
+    flowType: 'oauth2_pkce' | 'oauth2_cc' | 'api_key' | 'basic' | 'custom',
+    fields: {
+      name?: string;
+      authorize_url?: string | null;
+      token_url?: string | null;
+      client_id?: string | null;
+      client_secret?: string | null;
+      scopes?: string | null;
+      header_name?: string | null;
+      token_prefix?: string | null;
+      extra_auth_params?: Record<string, any> | null;
+      extra_token_params?: Record<string, any> | null;
+    },
+  ): Promise<string> {
+    const profName = fields.name || `${providerKey}:${flowType}:server:${serverId.substring(0, 8)}`;
+    const type =
+      flowType === 'oauth2_pkce'
+        ? 'OAUTH2_AUTH_CODE_PKCE'
+        : flowType === 'oauth2_cc'
+          ? 'OAUTH2_CLIENT_CREDENTIALS'
+          : flowType === 'api_key'
+            ? 'API_KEY_HEADER'
+            : flowType === 'basic'
+              ? 'BASIC'
+              : 'CUSTOM';
+
+    const payload: any = {
+      name: profName,
+      type,
+      header_name: fields.header_name || 'Authorization',
+      token_prefix: fields.token_prefix || 'Bearer',
+      oauth_auth_url: fields.authorize_url || null,
+      oauth_token_url: fields.token_url || null,
+      oauth_client_id: fields.client_id || null,
+      oauth_client_secret: fields.client_secret || null,
+      oauth_scope: fields.scopes || null,
+      oauth_extra_auth_params: fields.extra_auth_params || {},
+      oauth_extra_token_params: fields.extra_token_params || {},
+      updatedAt: new Date().toISOString(),
+    };
+
+    const rows = await this.restMutate<any[]>(
+      'advisori_mcp_auth_profile?on_conflict=name',
+      [payload],
+      'POST',
+    );
+    const row = rows?.[0];
+    if (!row?.id) throw new Error('Failed to upsert auth profile');
+
+    // Link server → profile (upsert)
+    await this.restMutate<any[]>(
+      'advisori_mcp_server_auth_map?on_conflict=server_id',
+      [
+        {
+          server_id: serverId,
+          auth_profile_id: row.id,
+          enabled: true,
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      'POST',
+    );
+
+    return row.id as string;
+  }
+
+  async upsertAuthProfileForTool(
+    toolId: string,
+    providerKey: string,
+    flowType: 'oauth2_pkce' | 'oauth2_cc' | 'api_key' | 'basic' | 'custom',
+    fields: {
+      name?: string;
+      authorize_url?: string | null;
+      token_url?: string | null;
+      client_id?: string | null;
+      client_secret?: string | null;
+      scopes?: string | null;
+      header_name?: string | null;
+      token_prefix?: string | null;
+      extra_auth_params?: Record<string, any> | null;
+      extra_token_params?: Record<string, any> | null;
+    },
+  ): Promise<string> {
+    const profName = fields.name || `${providerKey}:${flowType}:tool:${toolId.substring(0, 8)}`;
+    const type =
+      flowType === 'oauth2_pkce'
+        ? 'OAUTH2_AUTH_CODE_PKCE'
+        : flowType === 'oauth2_cc'
+          ? 'OAUTH2_CLIENT_CREDENTIALS'
+          : flowType === 'api_key'
+            ? 'API_KEY_HEADER'
+            : flowType === 'basic'
+              ? 'BASIC'
+              : 'CUSTOM';
+
+    const payload: any = {
+      name: profName,
+      type,
+      header_name: fields.header_name || 'Authorization',
+      token_prefix: fields.token_prefix || 'Bearer',
+      oauth_auth_url: fields.authorize_url || null,
+      oauth_token_url: fields.token_url || null,
+      oauth_client_id: fields.client_id || null,
+      oauth_client_secret: fields.client_secret || null,
+      oauth_scope: fields.scopes || null,
+      oauth_extra_auth_params: fields.extra_auth_params || {},
+      oauth_extra_token_params: fields.extra_token_params || {},
+      updatedAt: new Date().toISOString(),
+    };
+
+    const rows = await this.restMutate<any[]>(
+      'advisori_mcp_auth_profile?on_conflict=name',
+      [payload],
+      'POST',
+    );
+    const row = rows?.[0];
+    if (!row?.id) throw new Error('Failed to upsert auth profile');
+
+    // Link tool → profile (upsert)
+    await this.restMutate<any[]>(
+      'advisori_mcp_tool_auth_map?on_conflict=tool_id',
+      [
+        {
+          tool_id: toolId,
+          auth_profile_id: row.id,
+          enabled: true,
+          updated_at: new Date().toISOString(),
+        },
+      ],
+      'POST',
+    );
+
+    return row.id as string;
+  }
+
   /**
    * Convert DB capabilities into MCP ServerCapabilities-like flags where relevant.
    * Unknown keys are ignored gracefully.

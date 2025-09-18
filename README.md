@@ -147,6 +147,20 @@ Statt OAuth‑Flows können Kunden statische Schlüssel (z. B. Postgres‑URL,
 
 Direktübergabe ohne Consent: per Header (`X-Secret-Header-<Name>: <Value>`, `...-Id: <secret_id>`) oder als `arguments._secrets = { "<Name>": "<Value>" }`.
 
+## Provider‑agnostisches Pre‑Auth + OAuth/API‑Key
+
+Vor dem eigentlichen Login/Token‑Bezug können mandantenspezifische Provider‑Parameter erhoben und gespeichert werden.
+
+- Provider‑Katalog (DB): `public.auth_provider_catalog` mit `flow_type`, URL‑Templates (`{tenant}`), `form_schema` und `headers_blueprint`.
+- Routen:
+  - `GET ${apiPrefix}/remote-auth/provider/:provider/begin?serverId=&toolId=&mode=&returnUrl=` → Formular gem. `form_schema`.
+  - `POST ${apiPrefix}/remote-auth/provider/:provider/submit` → speichert Felder, legt `advisori_mcp_auth_profile` an und verknüpft `serverId` via `advisori_mcp_server_auth_map` oder `toolId` via `advisori_mcp_tool_auth_map`.
+  - `GET ${apiPrefix}/remote-auth/provider/:provider/preview` → liefert Provider‑Blueprint als JSON (form_schema, URLs, flow_type).
+  - `GET ${apiPrefix}/remote-auth/provider/:provider/begin.json?serverId=&toolId=&mode=&returnUrl=` → JSON‑Variante des Formular‑Schemas (für eigene UI).
+  - `POST ${apiPrefix}/remote-auth/provider/:provider/submit.json` (Body: `{ server_id|tool_id, mode, fields:{...} }`) → JSON‑Antwort `{ status:'ok', profileId }`.
+- Modus (`mode`): `pkce` | `cc` | `api_key` | `basic` (steuert Profiltyp/Spalten).
+- Migrationen: `sql/2025-09-18_create_auth_provider_catalog.sql`, `sql/2025-09-18_create_or_update_required_secret_ref.sql`.
+
 ## Playground
 
 The `playground` directory contains working examples for all features.
@@ -161,3 +175,9 @@ Refer to [`playground/README.md`](playground/README.md) for details.
 [npm-license-image]: https://img.shields.io/npm/l/@rekog/mcp-nest
 [code-coverage-url]: https://codecov.io/gh/rekog-labs/mcp-nest
 [code-coverage-image]: https://codecov.io/gh/rekog-labs/mcp-nest/branch/main/graph/badge.svg
+- Supabase → MCP Token Bridge:
+  - `POST ${apiPrefix}/remote-auth/bridge/supabase-to-mcp` (Authorization: Bearer <Supabase JWT> oder Body.supabase_token)
+  - Server verifiziert Supabase‑JWT via HS256 mit `SUPABASE_JWT_SECRET` und stellt MCP‑Access/Refresh Tokens aus (aud/resource laut Konfiguration).
+- Mehrfach‑Resource (aud/resource) im Guard:
+  - Setze mehrere erlaubte Resources per `OAUTH_ALLOWED_RESOURCES="https://a/mcp,https://b/mcp"` oder über Komma/Leerzeichen in `OAUTH_MODULE_OPTIONS.resource`.
+  - Der Guard akzeptiert Tokens, deren aud UND resource in der Allowlist enthalten sind.

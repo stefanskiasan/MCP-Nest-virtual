@@ -59,6 +59,49 @@ export class McpConsentController {
     res!.type('html').send(html);
   }
 
+  @Get('preview')
+  async preview(
+    @Query('serverId') serverId?: string,
+    @Query('connectorId') connectorId?: string,
+    @Query('toolId') toolId?: string,
+    @Res() res?: Response,
+  ) {
+    // Identify user for hasUserBinding
+    const reqUser: any = (res as any).req?.user || (res as any).req?.raw?.user;
+    const user_id: string | undefined = reqUser?.sub || reqUser?.id;
+
+    let refs = [] as any[];
+    if (toolId) {
+      refs = await this.supa.listRequiredSecretRefsForTool(toolId, connectorId);
+    } else {
+      refs = await this.supa.listRequiredSecretRefs(serverId, connectorId);
+    }
+
+    let bindings: Record<string, boolean> = {};
+    if (user_id) {
+      const rows = await this.supa.fetchUserSecretBindings(user_id, serverId, connectorId);
+      for (const b of rows) {
+        const key = `${b.ref_kind}:${b.ref_key}`;
+        bindings[key] = true;
+      }
+    }
+
+    const fields = refs.map((r) => ({
+      ref_kind: r.ref_kind,
+      ref_key: r.ref_key,
+      required: !!r.required,
+      managed_by: (r.managed_by || 'USER').toUpperCase(),
+      allow_override: !!r.allow_override,
+      ui_label: r.ui_label || null,
+      ui_hint: r.ui_hint || null,
+      hasAdminDefault: !!r.admin_secret_id,
+      hasUserBinding: !!bindings[`${r.ref_kind}:${r.ref_key}`],
+      editable: (r.managed_by || 'USER').toUpperCase() !== 'ADMIN' || !!r.allow_override,
+    }));
+
+    res!.json({ serverId, connectorId, toolId, fields });
+  }
+
   @Post('submit')
   async submit(@Body() body: any, @Res() res: Response) {
     const server_id = body.server_id || body.serverId || null;
@@ -105,4 +148,3 @@ export class McpConsentController {
     return this.options.apiPrefix ? `/${this.options.apiPrefix}` : '';
   }
 }
-
