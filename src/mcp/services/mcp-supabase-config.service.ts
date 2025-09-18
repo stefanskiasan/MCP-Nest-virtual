@@ -190,6 +190,122 @@ export class McpSupabaseConfigService {
     return row?.code as string | undefined;
   }
 
+  // --- Secret & Consent helpers ---
+  async fetchSecretValueById(secretId: string): Promise<string | null> {
+    if (!this.supabaseEnabled || !secretId) return null;
+    const rows = await this.rest<any[]>(`advisori_secretmanager`, {
+      select: 'id,value',
+      id: `eq.${secretId}`,
+      limit: '1',
+    });
+    const row = rows?.[0];
+    return (row && (row.value as string)) || null;
+  }
+
+  async fetchSecretValuesByIds(ids: string[]): Promise<Record<string, string | null>> {
+    const out: Record<string, string | null> = {};
+    const unique = Array.from(new Set(ids.filter(Boolean)));
+    if (!this.supabaseEnabled || unique.length === 0) return out;
+    const params: Record<string, string> = {
+      select: 'id,value',
+      id: `in.(${unique.join(',')})`,
+    };
+    const rows = await this.rest<any[]>(`advisori_secretmanager`, params);
+    for (const id of unique) out[id] = null;
+    for (const r of rows || []) out[r.id] = r.value ?? null;
+    return out;
+  }
+
+  async fetchUserSecretBindings(
+    userId: string,
+    serverId?: string,
+    connectorId?: string,
+  ): Promise<Array<{ id: string; user_id: string; server_id: string | null; connector_id: string | null; ref_kind: string; ref_key: string; secret_id: string; active: boolean }>> {
+    if (!this.supabaseEnabled) return [];
+    const eq = (k: string, v: string | undefined) => (v ? { [k]: `eq.${v}` } : {});
+    const rows = await this.rest<any[]>(`advisori_mcp_user_secret_binding`, {
+      select: 'id,user_id,server_id,connector_id,ref_kind,ref_key,secret_id,active',
+      ...eq('user_id', userId),
+      ...eq('server_id', serverId),
+      ...eq('connector_id', connectorId),
+      active: 'eq.true',
+      order: 'updated_at.desc',
+    });
+    return rows || [];
+  }
+
+  async listRequiredSecretRefs(
+    serverId?: string,
+    connectorId?: string,
+  ): Promise<Array<{ id: string; ref_kind: string; ref_key: string; required: boolean; managed_by?: string; allow_override?: boolean; admin_secret_id?: string | null; ui_label?: string | null; ui_hint?: string | null }>> {
+    if (!this.supabaseEnabled) return [];
+    const params: Record<string, string> = { select: 'id,ref_kind,ref_key,required,managed_by,allow_override,admin_secret_id,ui_label,ui_hint' };
+    if (serverId) params['server_id'] = `eq.${serverId}`;
+    if (connectorId) params['connector_id'] = `eq.${connectorId}`;
+    const rows = await this.rest<any[]>(`advisori_mcp_required_secret_ref`, params).catch(() => []);
+    return rows || [];
+  }
+
+  async listRequiredSecretRefsForTool(
+    toolId: string,
+    connectorId?: string,
+  ): Promise<Array<{ id: string; ref_kind: string; ref_key: string; required: boolean; managed_by?: string; allow_override?: boolean; admin_secret_id?: string | null; ui_label?: string | null; ui_hint?: string | null }>> {
+    if (!this.supabaseEnabled) return [];
+    const paramsTool: Record<string, string> = { select: 'id,ref_kind,ref_key,required,managed_by,allow_override,admin_secret_id,ui_label,ui_hint', tool_id: `eq.${toolId}` };
+    const toolRefs = await this.rest<any[]>(`advisori_mcp_required_secret_ref`, paramsTool).catch(() => []);
+    if (!connectorId) return toolRefs || [];
+    const paramsConn: Record<string, string> = { select: 'id,ref_kind,ref_key,required,managed_by,allow_override,admin_secret_id,ui_label,ui_hint', connector_id: `eq.${connectorId}` };
+    const connRefs = await this.rest<any[]>(`advisori_mcp_required_secret_ref`, paramsConn).catch(() => []);
+    return [ ...(toolRefs || []), ...(connRefs || []) ];
+  }
+
+  private async restMutate<T = any>(path: string, body: any, method: 'POST' | 'PATCH'): Promise<T> {
+    this.ensureConfigReady();
+    const url = new URL(`${this.supabaseUrl}/rest/v1/${path}`);
+    const fetchFn: any = (globalThis as any).fetch;
+    if (!fetchFn) throw new Error('global fetch is not available in this runtime');
+    const res = await fetchFn(url.toString(), {
+      method,
+      headers: {
+        apikey: this.supabaseKey!,
+        Authorization: `Bearer ${this.supabaseKey}`,
+        Accept: 'application/json',
+        'Accept-Profile': this.schema,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Supabase REST mutate error ${res.status}: ${text}`);
+    }
+    return (await res.json()) as T;
+  }
+
+  async ensureSecret(value: string, name?: string, owner_user_id?: string): Promise<string> {
+    const rows = await this.restMutate<any[]>(`advisori_secretmanager`, [{ value, ...(name ? { name } : {}), ...(owner_user_id ? { owner_user_id } : {}) }], 'POST');
+    const row = rows?.[0];
+    if (!row?.id) throw new Error('Failed to insert secret');
+    return row.id as string;
+  }
+
+  async upsertUserBinding(payload: { user_id: string; server_id?: string | null; connector_id?: string | null; ref_kind: string; ref_key: string; secret_id: string; active?: boolean }): Promise<void> {
+    const urlPath = `advisori_mcp_user_secret_binding?on_conflict=user_id,server_id,connector_id,ref_kind,ref_key`;
+    await this.restMutate<any[]>(urlPath, [
+      {
+        user_id: payload.user_id,
+        server_id: payload.server_id ?? null,
+        connector_id: payload.connector_id ?? null,
+        ref_kind: payload.ref_kind,
+        ref_key: payload.ref_key,
+        secret_id: payload.secret_id,
+        active: payload.active ?? true,
+        updated_at: new Date().toISOString(),
+      },
+    ], 'POST');
+  }
+
   /**
    * Convert DB capabilities into MCP ServerCapabilities-like flags where relevant.
    * Unknown keys are ignored gracefully.

@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { McpOptions } from '../interfaces';
 import { McpSupabaseConfigService } from './mcp-supabase-config.service';
+import { SecretResolverService } from './secret-resolver.service';
 import { HttpRequest } from '../interfaces/http-adapter.interface';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class McpToolForwarderService {
   constructor(
     @Inject('MCP_OPTIONS') private readonly options: McpOptions,
     private readonly supa: McpSupabaseConfigService,
+    private readonly secrets: SecretResolverService,
   ) {}
 
   private pickForwardableHeaders(req: HttpRequest): Record<string, string> {
@@ -97,8 +99,11 @@ export class McpToolForwarderService {
     const transformResponse = await this.supa.fetchActiveTransform(tool.id, 'response');
     if (!transformRequest) throw new Error('TRANSFORM_REQUEST_MISSING');
 
-    // 4) Headers from request
-    const customHeader = this.pickForwardableHeaders(httpRequest);
+    // 4) Headers from request + resolved secrets (direct, user bindings)
+    const customHeader = {
+      ...this.pickForwardableHeaders(httpRequest),
+      ...(await this.secrets.resolve(httpRequest, serverId, connector?.id, tool.id, args)),
+    };
 
     // 5) Build forward payload
     const payload = {
@@ -118,4 +123,3 @@ export class McpToolForwarderService {
     return response;
   }
 }
-

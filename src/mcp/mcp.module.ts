@@ -18,12 +18,14 @@ import { createStreamableHttpController } from './transport/streamable-http.cont
 import { normalizeEndpoint } from './utils/normalize-endpoint';
 import { McpSupabaseConfigService } from './services/mcp-supabase-config.service';
 import { McpToolForwarderService } from './services/mcp-tool-forwarder.service';
+import { SecretResolverService } from './services/secret-resolver.service';
+import { McpConsentController } from '../authz/mcp-consent.controller';
 
 let instanceIdCounter = 0;
 
 @Module({
   imports: [DiscoveryModule],
-  providers: [McpRegistryService, McpExecutorService, McpSupabaseConfigService, McpToolForwarderService],
+  providers: [McpRegistryService, McpExecutorService, McpSupabaseConfigService, McpToolForwarderService, SecretResolverService],
 })
 export class McpModule {
   /**
@@ -65,7 +67,7 @@ export class McpModule {
     const controllers = this.createControllersFromOptions(mergedOptions);
     return {
       module: McpModule,
-      controllers,
+      controllers: [...controllers, McpConsentController],
       providers,
       exports: [McpRegistryService, McpSseService, McpStreamableHttpService],
     };
@@ -103,8 +105,8 @@ export class McpModule {
     return {
       module: McpModule,
       imports: options.imports ?? [],
-      // No automatic controllers in async mode
-      controllers: [],
+      // No automatic transport controllers in async mode, but consent controller is added
+      controllers: [McpConsentController],
       providers: [
         ...asyncProviders,
         ...baseProviders,

@@ -137,6 +137,16 @@ Bei `tools/call` mit gesetzter Server‑ID wird das Tool per Mapping in Supabase
 
 Antwort der Function wird an den MCP‑Client zurückgegeben. Falls kein Mapping/Transform existiert, erfolgt Fallback auf lokal registrierte (@Tool) Implementierungen.
 
+1. ja ## Consent für statische Secrets
+
+Statt OAuth‑Flows können Kunden statische Schlüssel (z. B. Postgres‑URL, X‑API‑Key) hinterlegen. Der MCP‑Server speichert diese pro Nutzer und nutzt sie bei Tool‑Calls automatisch.
+
+- GET `${apiPrefix}/remote-auth/consent?serverId|connectorId&returnUrl=` → HTML‑Form mit benötigten Feldern (aus `advisori_mcp_required_secret_ref`).
+- POST `${apiPrefix}/remote-auth/consent/submit` → speichert Werte in `advisori_secretmanager` und legt Bindings in `advisori_mcp_user_secret_binding` an.
+- Bei `tools/call` werden Secrets aufgelöst (Header/Args > User‑Bindings > ADMIN‑Secrets) und als `customHeader` an die Serverless‑Function übergeben.
+
+Direktübergabe ohne Consent: per Header (`X-Secret-Header-<Name>: <Value>`, `...-Id: <secret_id>`) oder als `arguments._secrets = { "<Name>": "<Value>" }`.
+
 ## Playground
 
 The `playground` directory contains working examples for all features.

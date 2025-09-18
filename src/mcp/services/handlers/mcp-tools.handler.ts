@@ -121,31 +121,39 @@ export class McpToolsHandler extends McpHandlerBase {
       async (request) => {
         this.logger.debug('CallToolRequestSchema is being called');
         // Try Supabase forwarder first if server id is present
-        try {
-          const contextId = ContextIdFactory.getByRequest(httpRequest);
-          this.moduleRef.registerRequestByContextId(httpRequest, contextId);
-          const supabase = await this.moduleRef.resolve(
-            McpSupabaseConfigService,
-            contextId,
-            { strict: false },
-          );
-          const serverId = supabase.getServerIdFromRequest(httpRequest);
-          if (serverId) {
-            const forwarder = await this.moduleRef.resolve(
-              McpToolForwarderService,
-              contextId,
-              { strict: false },
-            );
-            const forwarded = await forwarder.forward(
-              serverId,
-              request.params.name,
-              request.params.arguments || {},
-              httpRequest,
-            );
-            return this.formatToolResult(forwarded);
+        const contextId = ContextIdFactory.getByRequest(httpRequest);
+        this.moduleRef.registerRequestByContextId(httpRequest, contextId);
+        const supabase = await this.moduleRef.resolve(
+          McpSupabaseConfigService,
+          contextId,
+          { strict: false },
+        );
+        const serverId = supabase.getServerIdFromRequest(httpRequest);
+        if (serverId) {
+          const toolRow = await supabase.fetchToolByName(serverId, request.params.name);
+          if (toolRow) {
+            try {
+              const forwarder = await this.moduleRef.resolve(
+                McpToolForwarderService,
+                contextId,
+                { strict: false },
+              );
+              const forwarded = await forwarder.forward(
+                serverId,
+                request.params.name,
+                request.params.arguments || {},
+                httpRequest,
+              );
+              return this.formatToolResult(forwarded);
+            } catch (e) {
+              this.logger.error(`Supabase forwarding error: ${e}`);
+              throw new McpError(
+                ErrorCode.InternalError,
+                e instanceof Error ? e.message : 'Forwarding error',
+              );
+            }
           }
-        } catch (e) {
-          this.logger.warn(`Supabase forwarding failed; fallback to local: ${e}`);
+          // If tool is not defined in DB for this server, fall through to local
         }
 
         const toolInfo = this.registry.findTool(
